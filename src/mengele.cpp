@@ -1,6 +1,3 @@
-#include "mengele.h"
-
-#include <iostream>
 /*
 for each pixel (Px, Py) on the screen do
     x0 := scaled x coordinate of pixel (scaled to lie in the Mandelbrot X scale (-2.00, 0.47))
@@ -18,6 +15,9 @@ for each pixel (Px, Py) on the screen do
     color := palette[iteration]
     plot(Px, Py, color)
 */
+#include "mengele.h"
+
+#include <iostream>
 
 const Frame& Mengele::calcFrame(const FrameParams& params)
 {
@@ -45,7 +45,7 @@ void Mengele::calcField(
 )
 {
     const auto zoomX = params.zoom;
-    const auto zoomY = zoomX;
+    const auto zoomY = params.zoom;
 
     for (uint32_t i = 0; i < params.width; i++)
     {

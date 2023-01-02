@@ -8,7 +8,6 @@
 
 using real = double;
 
-//using color = uint32_t;
 struct Color
 {
     real h, s, l;
@@ -24,7 +23,7 @@ struct FrameParams
 
     bool operator==(const FrameParams& ot)
     {
-        const double eps = 0.0000000000001;
+        const double eps = 0.000000000000000000000001;
 
         const bool xis = std::abs(this->x - ot.x) < eps;
         const bool yis = std::abs(this->y - ot.y) < eps;

@@ -2,6 +2,7 @@
 #include <cmath>
 #include <tuple>
 #include <deque>
+#include <thread>
 
 #include <stdio.h>
 
@@ -11,12 +12,6 @@
 
 #include "mengele.h"
 
-struct ColorHsl
-{
-    double hue;
-    double saturation;
-    double lumi;
-};
 struct ColorRgb
 {
     double red;
@@ -24,10 +19,20 @@ struct ColorRgb
     double blue;
 };
 
+struct ColorHsl
+{
+    double hue;
+    double saturation;
+    double lumi;
+
+    ColorRgb toRgb();
+};
+
 struct StaticParams
 {
     int w = 1920, h = 1080;
 } c;
+
 struct Params
 {
     uint32_t maxIters = 100;
@@ -35,29 +40,11 @@ struct Params
     uint32_t round = 0;
 
     real x = 0.0, y = 0.0;
-    real zoom = 1;
+    real zoom = 1.0, zoomPerRound = 1.0;
+    real hueX = 1.0;
 
     bool record = false;
 } c_start;
-
-//iters: 4404
-//rounds per round: 33
-//maxIters: 4404
-//x: -0.75
-//y: -0.00196928
-//zoom: 1.54377e-14
-//record: 0
-
-//iters: 4404
-//rounds per round: 33
-//maxIters: 4404
-//x: -0.75
-//y: -0.00196928
-//zoom: 4.18766
-//record: 0
-
-
-ColorRgb hslToRgb(const ColorHsl &hsl);
 
 class Ikkuna
     : public QWidget
@@ -70,7 +57,7 @@ public:
         m_renderObj = new QLabel(this);
         QHBoxLayout* layout = new QHBoxLayout;
 
-        setFixedSize(1280, 720);
+        setFixedSize(c.w, c.h);
         layout->addWidget(m_renderObj);
         setLayout(layout);
 
@@ -99,24 +86,48 @@ private slots:
         std::cout << event->text().toStdString() << "\n";
         if(event->key() == Qt::Key_Z)
         {
-            p.zoom = p.zoom*0.999;
+            p.zoom = p.zoom*0.99;
         }
         if(event->key() == Qt::Key_X)
         {
-            const auto tmp = p.zoom;
-            p.zoom = p.zoom*1.001;
-            if (p.zoom == tmp) p.zoom++;
+            //const auto tmp = p.zoom;
+            p.zoom = p.zoom*1.01;
+            //if (p.zoom == tmp) p.zoom++;
+        }
+        if(event->key() == Qt::Key_O)
+        {
+            p.zoomPerRound = p.zoomPerRound*0.99;
+        }
+        if(event->key() == Qt::Key_P)
+        {
+            //const auto tmp = p.zoomPerRound;
+            p.zoomPerRound = p.zoomPerRound*1.01;
+            //if (p.zoomPerRound == tmp) p.zoomPerRound++;
+        }
+        if(event->key() == Qt::Key_I)
+        {
+            p.zoom = 1.0; 
+        }
+        if(event->key() == Qt::Key_Y)
+        {
+            p.hueX = p.hueX*0.99;
+        }
+        if(event->key() == Qt::Key_U)
+        {
+            //const auto tmp = p.hueX;
+            p.hueX = p.hueX*1.01;
+            //if (p.hueX == tmp) p.hueX++;
         }
 
         if(event->key() == Qt::Key_Q)
         {
-            p.maxIters = p.maxIters*0.999;
+            p.maxIters = p.maxIters*0.99;
             m_colorMap.clear();
         }
         if(event->key() == Qt::Key_E)
         {
             const auto tmp = p.maxIters;
-            p.maxIters = p.maxIters*1.001;
+            p.maxIters = p.maxIters*1.01;
             if (p.maxIters == tmp) p.maxIters++;
             m_colorMap.clear();
         }
@@ -163,7 +174,7 @@ private slots:
             pclose(ffmpeg);
             ffmpeg = popen(
                 "ffmpeg -y -f rawvideo -vcodec rawvideo -pix_fmt bgra "
-                    "-s 1280x720 -r 60 -i - -f mp4 -q:v 1 -an "
+                    "-s 1920x1080 -r 25 -i - -f mp4 -q:v 1 -an "
                     "-vcodec mpeg4 output.mp4",
                 "w"
             );
@@ -175,26 +186,21 @@ private slots:
             << "roundsPerRound: " << p.roundsPerRound << "\n"
             << "round: " << p.round << "\n"
             << "x: " << p.x << " y: " << p.y << "\n"
-            << "zoom: " << p.zoom << "\n"
+            << "zoom: " << p.zoom << " zoomPerRound: " << p.zoomPerRound << "\n"
             << "record: " << p.record << "\n"
         ;
     }
-    //uint32_t maxIters = 100;
-    //uint32_t roundsPerRound = 0;
-    //uint32_t round = 0;
-//
-    //real x = 0.0, y = 0.0;
-    //real zoom = 1;
-//
-    //int w = 1920, h = 1080;
-//
-    //bool record = false;
 
     void paintEvent(QPaintEvent* event) override
     {
         p.round = p.round + p.roundsPerRound;
-        
-        const Frame frame = mengele.calcFrame(
+
+        p.zoom = p.zoom*p.zoomPerRound;
+
+        Frame frame;
+
+        std::thread frameT([this, &frame](){
+        frame = mengele.calcFrame(
             FrameParams{
                 .x = p.x,
                 .y = p.y,
@@ -204,7 +210,9 @@ private slots:
                 .maxIters = p.maxIters,
             }
         );
+        }); 
 
+        std::thread colorMapT([this](){
         if (m_colorMap.empty())
         {
             m_colorMap.resize(p.maxIters+1);
@@ -217,8 +225,8 @@ private slots:
             #pragma omp parallel for
             for (size_t i = 0; i < p.maxIters; i++)
             {
-                //const real H = std::log2l((real)i) / std::log2f((real)p.maxIters);
-                const real H = (real)i / (real)p.maxIters;
+                const real H = std::log2l((real)i) / std::log2f((real)p.maxIters);
+                //const real H = (real)i / (real)p.maxIters;
 
                 m_colorMap[i] = Color{
                     .h = H,
@@ -232,19 +240,22 @@ private slots:
                 .l = 0.0,
             };
         }
+        });
 
         auto colorTrans2 = [this](uint32_t it)
         {
-            QColor col;
-            const auto H = m_colorMap.at((it+p.round) % p.maxIters).h;
+            const auto H = p.hueX * m_colorMap.at((it+p.round) % p.maxIters).h;
             const auto S = m_colorMap.at(it).s;
             const auto L = m_colorMap.at(it).l;
 
-            const auto rgb = hslToRgb(ColorHsl{
+            const auto rgb = 
+            ColorHsl{
                 .hue = H,
                 .saturation = S,
                 .lumi = L,
-            });
+            }.toRgb();
+
+            QColor col;
             //col.setHslF(h, s, l);
             col.setRed(rgb.red);
             col.setGreen(rgb.green);
@@ -271,7 +282,10 @@ private slots:
         {
             colmap[i] = colorTrans1(i);
         } */
-        
+
+        frameT.join();
+        colorMapT.join();
+
         #pragma omp parallel for
         for (unsigned i = 0; i < c.h; i++)
         {
@@ -283,10 +297,19 @@ private slots:
             }
         }
 
-        m_renderObj->setPixmap(QPixmap::fromImage(img.scaled(size())));
-        m_renderObj->update();
+        const auto imgTmp = img;
 
-        if (p.record) fwrite(img.bits(), 1, img.sizeInBytes(), ffmpeg);
+        std::thread renderObjT([this](){
+        m_renderObj->setPixmap(QPixmap::fromImage(img));
+        m_renderObj->update();
+        });
+
+        std::thread ffmpegT([this, imgTmp](){
+        if (p.record) fwrite(imgTmp.bits(), 1, imgTmp.sizeInBytes(), ffmpeg);
+        });
+
+        renderObjT.join();
+        ffmpegT.join();
     }
 
 private:
@@ -309,21 +332,21 @@ int main(int argc, char** argv)
     return EXIT_SUCCESS;
 }
 
-ColorRgb hslToRgb(const ColorHsl &hsl) 
+ColorRgb ColorHsl::toRgb() 
 {
     double red;
     double green;
     double blue;
 
-    if (hsl.saturation == 0.0f) {
-        red = hsl.lumi * 255.0;
-        green = hsl.lumi * 255.0;
-        blue = hsl.lumi * 255.0;
+    if (saturation == 0.0f) {
+        red = lumi * 255.0;
+        green = lumi * 255.0;
+        blue = lumi * 255.0;
     } else {
-        float chroma = (1 - std::abs(2 * hsl.lumi - 1)) * hsl.saturation;
-        float hue = hsl.hue * 6.0f;
+        float chroma = (1 - std::abs(2 * lumi - 1)) * saturation;
+        float hue = hue * 6.0f;
         float x = chroma * (1 - std::abs(std::fmod(hue, 2.0f) - 1));
-        float magnitude = hsl.lumi - chroma / 2;
+        float magnitude = lumi - chroma / 2;
 
         auto hue_to_rgb = [](float chroma, float x, float hue) -> auto {
             if (hue < 0.0f)
