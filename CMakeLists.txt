@@ -4,9 +4,6 @@ project(mengelbro)
 
 set(libraries_to_link   "")
 
-find_package(Threads)
-list(APPEND libraries_to_link Threads::Threads)
-
 find_package(OpenMP)
 list(APPEND libraries_to_link OpenMP::OpenMP_CXX)
 

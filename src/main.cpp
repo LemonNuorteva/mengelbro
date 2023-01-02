@@ -1,6 +1,7 @@
 #include <iostream>
 #include <cmath>
 #include <tuple>
+#include <deque>
 
 #include <stdio.h>
 
@@ -22,18 +23,39 @@ struct ColorRgb
     double green;
     double blue;
 };
+
+struct StaticParams
+{
+    int w = 1920, h = 1080;
+} c;
 struct Params
 {
     uint32_t maxIters = 100;
-    uint32_t roundsPerRound = 123;
+    uint32_t roundsPerRound = 0;
+    uint32_t round = 0;
+
     real x = 0.0, y = 0.0;
     real zoom = 1;
 
-    unsigned round = 0;
-    int w = 1280, h = 720;
-
     bool record = false;
 } c_start;
+
+//iters: 4404
+//rounds per round: 33
+//maxIters: 4404
+//x: -0.75
+//y: -0.00196928
+//zoom: 1.54377e-14
+//record: 0
+
+//iters: 4404
+//rounds per round: 33
+//maxIters: 4404
+//x: -0.75
+//y: -0.00196928
+//zoom: 4.18766
+//record: 0
+
 
 ColorRgb hslToRgb(const ColorHsl &hsl);
 
@@ -54,10 +76,12 @@ public:
 
         ffmpeg = popen(
             "ffmpeg -y -f rawvideo -vcodec rawvideo -pix_fmt bgra "
-            "-s 1280x720 -r 60 -i - -f mp4 -q:v 1 -an "
-            "-vcodec mpeg4 output.mp4", "w");
+                "-s 1920x1080 -r 25 -i - -f mp4 -q:v 1 -an "
+                "-vcodec mpeg4 output.mp4", 
+            "w"
+        );
         
-        img = QImage(p.w, p.h,  QImage::Format_ARGB32);
+        img = QImage(c.w, c.h,  QImage::Format_ARGB32);
     }
 
     Params p = c_start;
@@ -66,7 +90,7 @@ public:
 
     FILE* ffmpeg;
 
-    QImage img;//(p.w, p.h,  QImage::Format_ARGB32);
+    QImage img;
 
 private slots:
 
@@ -75,23 +99,25 @@ private slots:
         std::cout << event->text().toStdString() << "\n";
         if(event->key() == Qt::Key_Z)
         {
-            p.zoom = p.zoom*0.95;
+            p.zoom = p.zoom*0.999;
         }
         if(event->key() == Qt::Key_X)
         {
             const auto tmp = p.zoom;
-            p.zoom = p.zoom*1.05;
+            p.zoom = p.zoom*1.001;
             if (p.zoom == tmp) p.zoom++;
         }
 
         if(event->key() == Qt::Key_Q)
         {
-            p.maxIters = p.maxIters*0.95;
+            p.maxIters = p.maxIters*0.999;
             m_colorMap.clear();
         }
         if(event->key() == Qt::Key_E)
         {
-            p.maxIters = p.maxIters*1.05;
+            const auto tmp = p.maxIters;
+            p.maxIters = p.maxIters*1.001;
+            if (p.maxIters == tmp) p.maxIters++;
             m_colorMap.clear();
         }
 
@@ -106,50 +132,75 @@ private slots:
 
         if(event->key() == Qt::Key_W)
         {
-            p.y = p.y - 0.10*p.zoom;
+            p.y = p.y - 0.01*p.zoom;
         }
         if(event->key() == Qt::Key_S)
         {
-            p.y = p.y + 0.10*p.zoom;
+            p.y = p.y + 0.01*p.zoom;
         }
 
         if(event->key() == Qt::Key_D)
         {
-            p.x = p.x + 0.10*p.zoom;
+            p.x = p.x + 0.01*p.zoom;
         }
         if(event->key() == Qt::Key_A)
         {
-            p.x = p.x - 0.10*p.zoom;
+            p.x = p.x - 0.01*p.zoom;
         }
 
         if(event->key() == Qt::Key_C)
         {
             fflush(ffmpeg);
             p.record = !p.record;
+            if (p.record)
+            {
+                std::cout << "Recording!\n";
+            }
+        }
+        if(event->key() == Qt::Key_V)
+        {
+            fflush(ffmpeg);
+            pclose(ffmpeg);
+            ffmpeg = popen(
+                "ffmpeg -y -f rawvideo -vcodec rawvideo -pix_fmt bgra "
+                    "-s 1280x720 -r 60 -i - -f mp4 -q:v 1 -an "
+                    "-vcodec mpeg4 output.mp4",
+                "w"
+            );
+            std::cout << "Recording reseted!\n";
         }
 
         std::cout 
-            << "iters: " << p.maxIters << "\n"
-            << "rounds per round: " << p.roundsPerRound << "\n"
             << "maxIters: " << p.maxIters << "\n"
-            << "x: " << p.x << "\n"
-            << "y: " << p.y << "\n"
+            << "roundsPerRound: " << p.roundsPerRound << "\n"
+            << "round: " << p.round << "\n"
+            << "x: " << p.x << " y: " << p.y << "\n"
             << "zoom: " << p.zoom << "\n"
             << "record: " << p.record << "\n"
         ;
     }
+    //uint32_t maxIters = 100;
+    //uint32_t roundsPerRound = 0;
+    //uint32_t round = 0;
+//
+    //real x = 0.0, y = 0.0;
+    //real zoom = 1;
+//
+    //int w = 1920, h = 1080;
+//
+    //bool record = false;
 
     void paintEvent(QPaintEvent* event) override
     {
-        p.round++;
+        p.round = p.round + p.roundsPerRound;
         
         const Frame frame = mengele.calcFrame(
             FrameParams{
                 .x = p.x,
                 .y = p.y,
                 .zoom = p.zoom,
-                .width = p.w,
-                .height = p.h,
+                .width = c.w,
+                .height = c.h,
                 .maxIters = p.maxIters,
             }
         );
@@ -222,11 +273,11 @@ private slots:
         } */
         
         #pragma omp parallel for
-        for (unsigned i = 0; i < p.h; i++)
+        for (unsigned i = 0; i < c.h; i++)
         {
-            for (unsigned j = 0; j < p.w; j++)
+            for (unsigned j = 0; j < c.w; j++)
             {
-                auto it = frame.at(i * p.w + j);
+                auto it = frame.at(i * c.w + j);
 
                 img.setPixelColor(j, i, colorTrans2(it));
             }
