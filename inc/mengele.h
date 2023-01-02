@@ -4,6 +4,8 @@
 #include <vector>
 #include <cmath>
 
+#include <iostream>
+
 using real = double;
 
 //using color = uint32_t;
@@ -16,13 +18,13 @@ using Frame = std::vector<uint32_t>;
 
 struct FrameParams
 {
-    real x, y, zoom;
-    int width, height;
-    uint32_t maxIters;
+    real x = 0, y = 0, zoom = 0;
+    int width = 0, height = 0;
+    uint32_t maxIters = 0;
 
     bool operator==(const FrameParams& ot)
     {
-        const double eps = 0.000000001;
+        const double eps = 0.0000000000001;
 
         const bool xis = std::abs(this->x - ot.x) < eps;
         const bool yis = std::abs(this->y - ot.y) < eps;
@@ -34,17 +36,7 @@ struct FrameParams
             && this->maxIters == ot.maxIters;
     }
 
-    FrameParams operator=(const FrameParams& ot)
-    {
-        return FrameParams{
-            .x = ot.x,
-            .y = ot.y,
-            .zoom = ot.zoom,
-            .width = ot.width,
-            .height = ot.height,
-            .maxIters = ot.maxIters,
-        };
-    }
+    FrameParams& operator=(const FrameParams& ot) = default;
 };
 
 class Mengele

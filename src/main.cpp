@@ -24,19 +24,15 @@ struct ColorRgb
 };
 struct Params
 {
-    uint32_t maxIters = 1000;
-    uint32_t roundsPerRound = 1;
+    uint32_t maxIters = 100;
+    uint32_t roundsPerRound = 123;
     real x = 0.0, y = 0.0;
-    real zoom = 0.6;
+    real zoom = 1;
 
     unsigned round = 0;
     int w = 1280, h = 720;
 
-    enum Record{
-        Show,
-        Rec,
-        Both,
-    } rec;
+    bool record = false;
 } c_start;
 
 ColorRgb hslToRgb(const ColorHsl &hsl);
@@ -57,7 +53,7 @@ public:
         setLayout(layout);
 
         ffmpeg = popen(
-            "ffmpeg -y -f rawvideo -vcodec rawvideo -pix_fmt argb "
+            "ffmpeg -y -f rawvideo -vcodec rawvideo -pix_fmt bgra "
             "-s 1280x720 -r 60 -i - -f mp4 -q:v 1 -an "
             "-vcodec mpeg4 output.mp4", "w");
         
@@ -83,7 +79,9 @@ private slots:
         }
         if(event->key() == Qt::Key_X)
         {
+            const auto tmp = p.zoom;
             p.zoom = p.zoom*1.05;
+            if (p.zoom == tmp) p.zoom++;
         }
 
         if(event->key() == Qt::Key_Q)
@@ -127,19 +125,7 @@ private slots:
         if(event->key() == Qt::Key_C)
         {
             fflush(ffmpeg);
-            using Record = Params::Record;
-            switch (p.rec)
-            {
-            case Record::Both :
-                p.rec = Record::Rec;
-                break;
-            case Record::Rec :
-                p.rec = Record::Show;
-                break;
-            case Record::Show :
-                p.rec = Record::Both;
-                break;
-            }
+            p.record = !p.record;
         }
 
         std::cout 
@@ -149,7 +135,7 @@ private slots:
             << "x: " << p.x << "\n"
             << "y: " << p.y << "\n"
             << "zoom: " << p.zoom << "\n"
-            << "record: " << (int)p.rec << "\n"
+            << "record: " << p.record << "\n"
         ;
     }
 
@@ -168,7 +154,7 @@ private slots:
             }
         );
 
-        if (m_colorMap.size() != p.maxIters)
+        if (m_colorMap.empty())
         {
             m_colorMap.resize(p.maxIters+1);
 
@@ -177,9 +163,11 @@ private slots:
             const real S = 1.0; //max saturation
             const real L = 0.5; //50% light
 
+            #pragma omp parallel for
             for (size_t i = 0; i < p.maxIters; i++)
             {
-                const real H = std::log2l((real)i) / std::log2f((real)p.maxIters);
+                //const real H = std::log2l((real)i) / std::log2f((real)p.maxIters);
+                const real H = (real)i / (real)p.maxIters;
 
                 m_colorMap[i] = Color{
                     .h = H,
@@ -233,6 +221,7 @@ private slots:
             colmap[i] = colorTrans1(i);
         } */
         
+        #pragma omp parallel for
         for (unsigned i = 0; i < p.h; i++)
         {
             for (unsigned j = 0; j < p.w; j++)
@@ -243,25 +232,10 @@ private slots:
             }
         }
 
-        using Record = Params::Record;
-        switch (p.rec)
-        {
-        case Record::Both :
-            fwrite(img.bits(), 1, img.sizeInBytes(), ffmpeg);
-            break;
-        case Record::Rec :
-            m_renderObj->setPixmap(QPixmap::fromImage(img.scaled(size())));
-            m_renderObj->update();
-            break;
-        case Record::Show :
-            fwrite(img.bits(), 1, img.sizeInBytes(), ffmpeg);
-            m_renderObj->setPixmap(QPixmap::fromImage(img.scaled(size())));
-            m_renderObj->update();
-            break;
-        }
-        //if (ffmpeg) fwrite(img.bits(), 1, img.sizeInBytes(), ffmpeg);
+        m_renderObj->setPixmap(QPixmap::fromImage(img.scaled(size())));
+        m_renderObj->update();
 
-        //std::cout << "asd: " << img.sizeInBytes()  << "\n";
+        if (p.record) fwrite(img.bits(), 1, img.sizeInBytes(), ffmpeg);
     }
 
 private:

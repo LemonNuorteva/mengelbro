@@ -26,8 +26,8 @@
                     "text": "-gdb-set disassembly-flavor intel",
                     "ignoreFailures": true
                 }
-            ]
+            ],
+            "visualizerFile": "/home/lemon/.config/Code/User/workspaceStorage/91bb797d0f6c07bef9e1856cce9044ec/tonka3000.qtvsctools/qt.natvis.xml"
         }
-
     ]
 }

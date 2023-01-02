@@ -1,5 +1,6 @@
 #include "mengele.h"
 
+#include <iostream>
 /*
 for each pixel (Px, Py) on the screen do
     x0 := scaled x coordinate of pixel (scaled to lie in the Mandelbrot X scale (-2.00, 0.47))
@@ -20,6 +21,18 @@ for each pixel (Px, Py) on the screen do
 
 const Frame& Mengele::calcFrame(const FrameParams& params)
 {
+    if (m_last == params)
+    {
+        std::cout << "No calculations :)\n";
+        return m_frame;
+    }
+    else
+    {
+        std::cout << "Yes calcs :(\n";
+    }
+
+    m_last = params;
+
     m_frame.resize(params.width * params.height);
 
     #pragma omp parallel for
@@ -36,20 +49,13 @@ void Mengele::calcField(
     const FrameParams& params
 )
 {
-    if (m_last == params)
-    {
-        return;
-    }
-
-    m_last = params;
-
     for (uint32_t i = 0; i < params.width; i++)
     {
         const real x0 = params.zoom * (params.x + ((real)i / 
-            params.width * (0.47 + 2.0) - 2.0));
+            params.width * (0.47 + 2.0))) - 2.0/2;
 
         const real y0 = params.zoom * (params.y +  ((real)fieldNum / 
-            params.height * (1.12 + 1.12) - 1.12));
+            params.height * (1.12 + 1.12))) - 1.12/2;
 
         uint32_t iterator = 0;
         real x{};
