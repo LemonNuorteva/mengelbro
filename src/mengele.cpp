@@ -44,13 +44,16 @@ void Mengele::calcField(
     const FrameParams& params
 )
 {
+    const auto zoomX = params.zoom;
+    const auto zoomY = zoomX;
+
     for (uint32_t i = 0; i < params.width; i++)
     {
-        const real x0 = params.zoom * (params.x + ((real)i / 
-            params.width * (0.47 + 2.0))) - 2.0/2;
+        const real x0 = params.x + zoomX * 
+            ( (real(i) / params.width) - 0.5 );
 
-        const real y0 = params.zoom * (params.y +  ((real)fieldNum / 
-            params.height * (1.12 + 1.12))) - 1.12/2;
+        const real y0 = params.y + zoomY * 
+            ( (real(fieldNum) / params.height) - 0.5 );
 
         uint32_t iterator = 0;
         real x{};
