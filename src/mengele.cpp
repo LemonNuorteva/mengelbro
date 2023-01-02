@@ -23,12 +23,7 @@ const Frame& Mengele::calcFrame(const FrameParams& params)
 {
     if (m_last == params)
     {
-        std::cout << "No calculations :)\n";
         return m_frame;
-    }
-    else
-    {
-        std::cout << "Yes calcs :(\n";
     }
 
     m_last = params;
