@@ -39,7 +39,7 @@ struct Params
     } rec;
 } c_start;
 
-ColorRgb colorRgb(const ColorHsl &hsl);
+ColorRgb hslToRgb(const ColorHsl &hsl);
 
 class Ikkuna
     : public QWidget
@@ -61,25 +61,8 @@ public:
             "-s 1280x720 -r 60 -i - -f mp4 -q:v 1 -an "
             "-vcodec mpeg4 output.mp4", "w");
         
-        img. (p.w, p.h,  QImage::Format_ARGB32);
+        img = QImage(p.w, p.h,  QImage::Format_ARGB32);
     }
-
-    // ffmpeg input on raakaa rgb:ta, 
-    // input tulee piipusta, 
-    // output tiedostonimi, 
-    // valitse codec
-
-
-    // uint32_t maxIters = 1000;
-    // uint32_t roundsPerRound = 1;
-    // real x = 0.0;
-    // real y = 0.0;
-    // real zoom = 0.6;
-    // uint32_t maxIters = 1126;
-    // uint32_t roundsPerRound = 1103;
-    // real x = -0.645331;
-    // real y = 0.478618;
-    // real zoom = 0.0376033;
 
     Params p = c_start;
 
@@ -148,22 +131,15 @@ private slots:
             switch (p.rec)
             {
             case Record::Both :
-                /* code */
+                p.rec = Record::Rec;
                 break;
             case Record::Rec :
-                /* code */
+                p.rec = Record::Show;
                 break;
             case Record::Show :
-                /* code */
-                break;
-            
-            default:
+                p.rec = Record::Both;
                 break;
             }
-            //fflush(ffmpeg);
-            //pclose(ffmpeg);
-            //ffmpeg = nullptr;
-            std::cout << "Record: \n";
         }
 
         std::cout 
@@ -173,17 +149,14 @@ private slots:
             << "x: " << p.x << "\n"
             << "y: " << p.y << "\n"
             << "zoom: " << p.zoom << "\n"
+            << "record: " << (int)p.rec << "\n"
         ;
     }
 
     void paintEvent(QPaintEvent* event) override
     {
         p.round++;
-        //int w = 1280, h = 720;
-
-
         
-
         const Frame frame = mengele.calcFrame(
             FrameParams{
                 .x = p.x,
@@ -228,7 +201,7 @@ private slots:
             const auto S = m_colorMap.at(it).s;
             const auto L = m_colorMap.at(it).l;
 
-            const auto rgb = colorRgb(ColorHsl{
+            const auto rgb = hslToRgb(ColorHsl{
                 .hue = H,
                 .saturation = S,
                 .lumi = L,
@@ -240,25 +213,25 @@ private slots:
             return col;
         };
 
-        // auto colorTrans1 = [](uint32_t it)
-        // {
-        //     QColor col = Qt::black;
-        //     if(it < maxIters)
-        //     {
-        //         float val = (float)it / maxIters;
-        //         col.setHslF(std::fmod(val + val * round * 0.1f, 1.0f), 1.0f, val);
-        //     }
-        //     return col;
-        // };
+        /* auto colorTrans1 = [](uint32_t it)
+        {
+            QColor col = Qt::black;
+            if(it < maxIters)
+            {
+                float val = (float)it / maxIters;
+                col.setHslF(std::fmod(val + val * round * 0.1f, 1.0f), 1.0f, val);
+            }
+            return col;
+        };
 
-        // std::vector<QColor> colmap;
+        std::vector<QColor> colmap;
 
-        // colmap.resize(2000);
+        colmap.resize(2000);
 
-        // for(auto i = 0; i < 2000; i++)
-        // {
-        //     colmap[i] = colorTrans1(i);
-        // }
+        for(auto i = 0; i < 2000; i++)
+        {
+            colmap[i] = colorTrans1(i);
+        } */
         
         for (unsigned i = 0; i < p.h; i++)
         {
@@ -269,10 +242,24 @@ private slots:
                 img.setPixelColor(j, i, colorTrans2(it));
             }
         }
-        m_renderObj->setPixmap(QPixmap::fromImage(img.scaled(size())));
-        m_renderObj->update();
-        
-        if (ffmpeg) fwrite(img.bits(), 1, img.sizeInBytes(), ffmpeg);
+
+        using Record = Params::Record;
+        switch (p.rec)
+        {
+        case Record::Both :
+            fwrite(img.bits(), 1, img.sizeInBytes(), ffmpeg);
+            break;
+        case Record::Rec :
+            m_renderObj->setPixmap(QPixmap::fromImage(img.scaled(size())));
+            m_renderObj->update();
+            break;
+        case Record::Show :
+            fwrite(img.bits(), 1, img.sizeInBytes(), ffmpeg);
+            m_renderObj->setPixmap(QPixmap::fromImage(img.scaled(size())));
+            m_renderObj->update();
+            break;
+        }
+        //if (ffmpeg) fwrite(img.bits(), 1, img.sizeInBytes(), ffmpeg);
 
         //std::cout << "asd: " << img.sizeInBytes()  << "\n";
     }
@@ -297,7 +284,7 @@ int main(int argc, char** argv)
     return EXIT_SUCCESS;
 }
 
-ColorRgb colorRgb(const ColorHsl &hsl) 
+ColorRgb hslToRgb(const ColorHsl &hsl) 
 {
     double red;
     double green;

@@ -36,6 +36,13 @@ void Mengele::calcField(
     const FrameParams& params
 )
 {
+    if (m_last == params)
+    {
+        return;
+    }
+
+    m_last = params;
+
     for (uint32_t i = 0; i < params.width; i++)
     {
         const real x0 = params.zoom * (params.x + ((real)i / 
