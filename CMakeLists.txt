@@ -13,6 +13,9 @@ list(APPEND libraries_to_link OpenMP::OpenMP_CXX)
 find_package(Qt5 COMPONENTS Widgets REQUIRED)
 list(APPEND libraries_to_link Qt5::Widgets)
 
+find_package(fmt)
+list(APPEND libraries_to_link fmt::fmt)
+
 add_compile_options(-march=native)
 
 #sources

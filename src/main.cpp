@@ -11,6 +11,8 @@
 #include <QApplication>
 #include <QMainWindow>
 
+#include <fmt/core.h>
+
 #include "mengele.h"
 
 struct ColorRgb
@@ -50,9 +52,13 @@ struct Params
 FILE* initFfmpeg()
 {
     return popen(
-        "ffmpeg -y -f rawvideo -vcodec rawvideo -pix_fmt bgra "
-            "-s 1280x720 -r 25 -i - -f mp4 -q:v 1 -an "
-            "-vcodec mpeg4 output.mp4", 
+        fmt::format(
+            "ffmpeg -y -f rawvideo -vcodec rawvideo -pix_fmt bgra "
+            "-s {}x{} -r 25 -i - -f mp4 -q:v 1 -an "
+            "-vcodec mpeg4 output.mp4",
+            c.w,
+            c.h
+        ).c_str(), 
         "w"
     );
 }
