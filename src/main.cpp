@@ -3,6 +3,7 @@
 #include <tuple>
 #include <deque>
 #include <thread>
+#include <future>
 
 #include <stdio.h>
 
@@ -30,7 +31,7 @@ struct ColorHsl
 
 struct StaticParams
 {
-    int w = 1920, h = 1080;
+    int w = 1280, h = 720;
 } c;
 
 struct Params
@@ -61,23 +62,43 @@ public:
         layout->addWidget(m_renderObj);
         setLayout(layout);
 
-        ffmpeg = popen(
+        m_ffmpeg = popen(
             "ffmpeg -y -f rawvideo -vcodec rawvideo -pix_fmt bgra "
-                "-s 1920x1080 -r 25 -i - -f mp4 -q:v 1 -an "
+                "-s 1280x720 -r 25 -i - -f mp4 -q:v 1 -an "
                 "-vcodec mpeg4 output.mp4", 
             "w"
         );
         
-        img = QImage(c.w, c.h,  QImage::Format_ARGB32);
+        m_img = QImage(c.w, c.h,  QImage::Format_ARGB32);
+
+        handle = std::async(
+            std::launch::async,
+            [this]()
+            {
+                return m_mengele.calcFrame(
+                    FrameParams{
+                        .x = p.x,
+                        .y = p.y,
+                        .zoom = p.zoom,
+                        .width = c.w,
+                        .height = c.h,
+                        .maxIters = p.maxIters,
+                    }
+                );
+            }
+        );
     }
 
     Params p = c_start;
 
-    Mengele mengele;
+    Mengele m_mengele;
 
-    FILE* ffmpeg;
+    std::future<Frame> handle;
+    Frame m_frame;
 
-    QImage img;
+    FILE* m_ffmpeg;
+
+    QImage m_img;
 
 private slots:
 
@@ -90,9 +111,11 @@ private slots:
         }
         if(event->key() == Qt::Key_X)
         {
-            //const auto tmp = p.zoom;
             p.zoom = p.zoom*1.01;
-            //if (p.zoom == tmp) p.zoom++;
+        }
+        if(event->key() == Qt::Key_I)
+        {
+            p.zoom = 1.0; 
         }
         if(event->key() == Qt::Key_O)
         {
@@ -100,13 +123,11 @@ private slots:
         }
         if(event->key() == Qt::Key_P)
         {
-            //const auto tmp = p.zoomPerRound;
             p.zoomPerRound = p.zoomPerRound*1.01;
-            //if (p.zoomPerRound == tmp) p.zoomPerRound++;
         }
-        if(event->key() == Qt::Key_I)
+        if(event->key() == Qt::Key_L)
         {
-            p.zoom = 1.0; 
+            p.zoomPerRound = 1.0; 
         }
         if(event->key() == Qt::Key_Y)
         {
@@ -114,9 +135,11 @@ private slots:
         }
         if(event->key() == Qt::Key_U)
         {
-            //const auto tmp = p.hueX;
             p.hueX = p.hueX*1.01;
-            //if (p.hueX == tmp) p.hueX++;
+        }
+        if(event->key() == Qt::Key_K)
+        {
+            p.hueX = 1.0; 
         }
 
         if(event->key() == Qt::Key_Q)
@@ -161,7 +184,7 @@ private slots:
 
         if(event->key() == Qt::Key_C)
         {
-            fflush(ffmpeg);
+            fflush(m_ffmpeg);
             p.record = !p.record;
             if (p.record)
             {
@@ -170,11 +193,11 @@ private slots:
         }
         if(event->key() == Qt::Key_V)
         {
-            fflush(ffmpeg);
-            pclose(ffmpeg);
-            ffmpeg = popen(
+            fflush(m_ffmpeg);
+            pclose(m_ffmpeg);
+            m_ffmpeg = popen(
                 "ffmpeg -y -f rawvideo -vcodec rawvideo -pix_fmt bgra "
-                    "-s 1920x1080 -r 25 -i - -f mp4 -q:v 1 -an "
+                    "-s 1280x720 -r 25 -i - -f mp4 -q:v 1 -an "
                     "-vcodec mpeg4 output.mp4",
                 "w"
             );
@@ -198,59 +221,36 @@ private slots:
 
         p.zoom = p.zoom*p.zoomPerRound;
 
-        Frame frame;
+        if (m_colorMap.empty())
+        {
+            m_colorMap.resize(p.maxIters+1);
 
-        std::thread frameT([this, &frame](){
-        frame = mengele.calcFrame(
-            FrameParams{
-                .x = p.x,
-                .y = p.y,
-                .zoom = p.zoom,
-                .width = c.w,
-                .height = c.h,
-                .maxIters = p.maxIters,
-            }
-        );
-        }); 
+            // H needs to bee between 0.0 and 1.0 when iter is
+            // between 0 and maxIters
+            const real S = 1.0; //max saturation
+            const real L = 0.5; //50% light
 
-        std::thread colorMapT(
-            [this]()
+            #pragma omp parallel for
+            for (size_t i = 0; i < p.maxIters; i++)
             {
-                if (!m_colorMap.empty())
-                {
-                    return;
-                }
+                //const real H = std::log((real)i) / std::log((real)p.maxIters);
+                const real H = (real)i / (real)p.maxIters;
 
-                m_colorMap.resize(p.maxIters+1);
-
-                // H needs to bee between 0.0 and 1.0 when iter is
-                // between 0 and maxIters
-                const real S = 1.0; //max saturation
-                const real L = 0.5; //50% light
-
-                #pragma omp parallel for
-                for (size_t i = 0; i < p.maxIters; i++)
-                {
-                    const real H = std::log((real)i) / std::log((real)p.maxIters);
-                    //const real H = (real)i / (real)p.maxIters;
-
-                    m_colorMap[i] = Color{
-                        .h = H,
-                        .s = S,
-                        .l = L,
-                    };
-                }
-                
-                m_colorMap[p.maxIters] = Color{
-                    .h = 0.0,
-                    .s = 0.0,
-                    .l = 0.0,
+                m_colorMap[i] = Color{
+                    .h = H,
+                    .s = S,
+                    .l = L,
                 };
             }
-        );
+            
+            m_colorMap[p.maxIters] = Color{
+                .h = 0.0,
+                .s = 0.0,
+                .l = 0.0,
+            };
+        }
 
-        frameT.join();
-        colorMapT.join();
+        m_frame = handle.get();
 
         auto colorTrans2 = [this](uint32_t it)
         {
@@ -298,29 +298,46 @@ private slots:
         {
             for (unsigned j = 0; j < c.w; j++)
             {
-                auto it = frame.at(i * c.w + j);
+                auto it = m_frame.at(i * c.w + j);
 
-                img.setPixelColor(j, i, colorTrans2(it));
+                m_img.setPixelColor(j, i, colorTrans2(it));
             }
         }
+
+        handle = std::async(
+            std::launch::async,
+            [this]()
+            {
+                return m_mengele.calcFrame(
+                    FrameParams{
+                        .x = p.x,
+                        .y = p.y,
+                        .zoom = p.zoom,
+                        .width = c.w,
+                        .height = c.h,
+                        .maxIters = p.maxIters,
+                    }
+                );
+            }
+        );
 
         std::thread renderObjT(
             [this]()
             {
-                m_renderObj->setPixmap(QPixmap::fromImage(img));
+                m_renderObj->setPixmap(QPixmap::fromImage(m_img));
                 m_renderObj->update();
             }
         );
 
-        std::thread ffmpegT(
+        std::thread m_ffmpegT(
             [this]()
             {
-                if (p.record) fwrite(img.bits(), 1, img.sizeInBytes(), ffmpeg);
+                if (p.record) fwrite(m_img.bits(), 1, m_img.sizeInBytes(), m_ffmpeg);
             }
         );
 
         renderObjT.join();
-        ffmpegT.join();
+        m_ffmpegT.join();
     }
 
 private:
