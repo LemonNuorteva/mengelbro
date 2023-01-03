@@ -184,9 +184,10 @@ private slots:
         std::cout 
             << "maxIters: " << p.maxIters << "\n"
             << "roundsPerRound: " << p.roundsPerRound << "\n"
-            << "round: " << p.round << "\n"
+            << "round: " << p.round  % p.maxIters<< "\n"
             << "x: " << p.x << " y: " << p.y << "\n"
             << "zoom: " << p.zoom << " zoomPerRound: " << p.zoomPerRound << "\n"
+            << "hueX: " << p.hueX << "\n"
             << "record: " << p.record << "\n"
         ;
     }
@@ -212,35 +213,44 @@ private slots:
         );
         }); 
 
-        std::thread colorMapT([this](){
-        if (m_colorMap.empty())
-        {
-            m_colorMap.resize(p.maxIters+1);
-
-            // H needs to bee between 0.0 and 1.0 when iter is
-            // between 0 and maxIters
-            const real S = 1.0; //max saturation
-            const real L = 0.5; //50% light
-
-            #pragma omp parallel for
-            for (size_t i = 0; i < p.maxIters; i++)
+        std::thread colorMapT(
+            [this]()
             {
-                const real H = std::log2l((real)i) / std::log2f((real)p.maxIters);
-                //const real H = (real)i / (real)p.maxIters;
+                if (!m_colorMap.empty())
+                {
+                    return;
+                }
 
-                m_colorMap[i] = Color{
-                    .h = H,
-                    .s = S,
-                    .l = L,
+                m_colorMap.resize(p.maxIters+1);
+
+                // H needs to bee between 0.0 and 1.0 when iter is
+                // between 0 and maxIters
+                const real S = 1.0; //max saturation
+                const real L = 0.5; //50% light
+
+                #pragma omp parallel for
+                for (size_t i = 0; i < p.maxIters; i++)
+                {
+                    const real H = std::log((real)i) / std::log((real)p.maxIters);
+                    //const real H = (real)i / (real)p.maxIters;
+
+                    m_colorMap[i] = Color{
+                        .h = H,
+                        .s = S,
+                        .l = L,
+                    };
+                }
+                
+                m_colorMap[p.maxIters] = Color{
+                    .h = 0.0,
+                    .s = 0.0,
+                    .l = 0.0,
                 };
             }
-            m_colorMap[p.maxIters] = Color{
-                .h = 0.0,
-                .s = 0.0,
-                .l = 0.0,
-            };
-        }
-        });
+        );
+
+        frameT.join();
+        colorMapT.join();
 
         auto colorTrans2 = [this](uint32_t it)
         {
@@ -283,9 +293,6 @@ private slots:
             colmap[i] = colorTrans1(i);
         } */
 
-        frameT.join();
-        colorMapT.join();
-
         #pragma omp parallel for
         for (unsigned i = 0; i < c.h; i++)
         {
@@ -297,16 +304,20 @@ private slots:
             }
         }
 
-        const auto imgTmp = img;
+        std::thread renderObjT(
+            [this]()
+            {
+                m_renderObj->setPixmap(QPixmap::fromImage(img));
+                m_renderObj->update();
+            }
+        );
 
-        std::thread renderObjT([this](){
-        m_renderObj->setPixmap(QPixmap::fromImage(img));
-        m_renderObj->update();
-        });
-
-        std::thread ffmpegT([this, imgTmp](){
-        if (p.record) fwrite(imgTmp.bits(), 1, imgTmp.sizeInBytes(), ffmpeg);
-        });
+        std::thread ffmpegT(
+            [this]()
+            {
+                if (p.record) fwrite(img.bits(), 1, img.sizeInBytes(), ffmpeg);
+            }
+        );
 
         renderObjT.join();
         ffmpegT.join();
@@ -338,41 +349,41 @@ ColorRgb ColorHsl::toRgb()
     double green;
     double blue;
 
-    if (saturation == 0.0f) {
+    if (saturation == 0.0) {
         red = lumi * 255.0;
         green = lumi * 255.0;
         blue = lumi * 255.0;
     } else {
-        float chroma = (1 - std::abs(2 * lumi - 1)) * saturation;
-        float hue = hue * 6.0f;
-        float x = chroma * (1 - std::abs(std::fmod(hue, 2.0f) - 1));
-        float magnitude = lumi - chroma / 2;
+        double chroma = (1 - std::abs(2 * lumi - 1)) * saturation;
+        double hue_asd = hue * 6.0;
+        double x = chroma * (1 - std::abs(std::fmod(hue, 2.0) - 1));
+        double magnitude = lumi - chroma / 2;
 
-        auto hue_to_rgb = [](float chroma, float x, float hue) -> auto {
-            if (hue < 0.0f)
-                return std::make_tuple(0.0f, 0.0f, 0.0f);
+        auto hue_to_rgb = [](double chroma, double x, double hue) -> auto {
+            if (hue < 0.0)
+                return std::make_tuple(0.0, 0.0, 0.0);
             int hue_floor = static_cast<int>(std::floor(hue));
             switch (hue_floor) {
             case 0:
-                return std::make_tuple(chroma, x, 0.0f);
+                return std::make_tuple(chroma, x, 0.0);
             case 1:
-                return std::make_tuple(x, chroma, 0.0f);
+                return std::make_tuple(x, chroma, 0.0);
             case 2:
-                return std::make_tuple(0.0f, chroma, x);
+                return std::make_tuple(0.0, chroma, x);
             case 3:
-                return std::make_tuple(0.0f, x, chroma);
+                return std::make_tuple(0.0, x, chroma);
             case 4:
-                return std::make_tuple(x, 0.0f, chroma);
+                return std::make_tuple(x, 0.0, chroma);
             case 5:
-                return std::make_tuple(chroma, 0.0f, x);
+                return std::make_tuple(chroma, 0.0, x);
             default:
-                return std::make_tuple(0.0f, 0.0f, 0.0f);
+                return std::make_tuple(0.0, 0.0, 0.0);
             }
         };
-        std::tie(red, green, blue) = hue_to_rgb(chroma, x, hue);
-        red = (red + magnitude) * 255.0f;
-        green = (green + magnitude) * 255.0f;
-        blue = (blue + magnitude) * 255.0f;
+        std::tie(red, green, blue) = hue_to_rgb(chroma, x, hue_asd);
+        red = (red + magnitude) * 255.0;
+        green = (green + magnitude) * 255.0;
+        blue = (blue + magnitude) * 255.0;
     }
 
     return {red, green, blue};
