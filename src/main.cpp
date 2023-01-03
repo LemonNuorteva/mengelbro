@@ -47,6 +47,43 @@ struct Params
     bool record = false;
 } c_start;
 
+FILE* initFfmpeg()
+{
+    return popen(
+        "ffmpeg -y -f rawvideo -vcodec rawvideo -pix_fmt bgra "
+            "-s 1280x720 -r 25 -i - -f mp4 -q:v 1 -an "
+            "-vcodec mpeg4 output.mp4", 
+        "w"
+    );
+}
+
+std::future<Frame> asyncMengele(
+    Params& params,
+    const StaticParams& sParams,
+    Mengele& mengele
+)
+{
+    params.round = params.round + params.roundsPerRound;
+    params.zoom = params.zoom * params.zoomPerRound;
+
+    return std::async(
+        std::launch::async,
+        [&]()
+        {
+            return mengele.calcFrame(
+                FrameParams{
+                    .x = params.x,
+                    .y = params.y,
+                    .zoom = params.zoom,
+                    .width = sParams.w,
+                    .height = sParams.h,
+                    .maxIters = params.maxIters,
+                }
+            );
+        }
+    );
+}
+
 class Ikkuna
     : public QWidget
 {
@@ -62,38 +99,18 @@ public:
         layout->addWidget(m_renderObj);
         setLayout(layout);
 
-        m_ffmpeg = popen(
-            "ffmpeg -y -f rawvideo -vcodec rawvideo -pix_fmt bgra "
-                "-s 1280x720 -r 25 -i - -f mp4 -q:v 1 -an "
-                "-vcodec mpeg4 output.mp4", 
-            "w"
-        );
+        m_ffmpeg = initFfmpeg();
         
         m_img = QImage(c.w, c.h,  QImage::Format_ARGB32);
 
-        handle = std::async(
-            std::launch::async,
-            [this]()
-            {
-                return m_mengele.calcFrame(
-                    FrameParams{
-                        .x = p.x,
-                        .y = p.y,
-                        .zoom = p.zoom,
-                        .width = c.w,
-                        .height = c.h,
-                        .maxIters = p.maxIters,
-                    }
-                );
-            }
-        );
+        m_futureFrame = asyncMengele(p, c, m_mengele);
     }
 
     Params p = c_start;
 
     Mengele m_mengele;
 
-    std::future<Frame> handle;
+    std::future<Frame> m_futureFrame;
     Frame m_frame;
 
     FILE* m_ffmpeg;
@@ -195,12 +212,7 @@ private slots:
         {
             fflush(m_ffmpeg);
             pclose(m_ffmpeg);
-            m_ffmpeg = popen(
-                "ffmpeg -y -f rawvideo -vcodec rawvideo -pix_fmt bgra "
-                    "-s 1280x720 -r 25 -i - -f mp4 -q:v 1 -an "
-                    "-vcodec mpeg4 output.mp4",
-                "w"
-            );
+            m_ffmpeg = initFfmpeg();
             std::cout << "Recording reseted!\n";
         }
 
@@ -217,13 +229,12 @@ private slots:
 
     void paintEvent(QPaintEvent* event) override
     {
-        p.round = p.round + p.roundsPerRound;
+        m_frame = m_futureFrame.get();
+        m_futureFrame = asyncMengele(p, c, m_mengele);
 
-        p.zoom = p.zoom*p.zoomPerRound;
-
-        if (m_colorMap.empty())
+        if (m_colorMap.size() != p.maxIters)
         {
-            m_colorMap.resize(p.maxIters+1);
+            m_colorMap.resize(p.maxIters);
 
             // H needs to bee between 0.0 and 1.0 when iter is
             // between 0 and maxIters
@@ -234,7 +245,7 @@ private slots:
             for (size_t i = 0; i < p.maxIters; i++)
             {
                 //const real H = std::log((real)i) / std::log((real)p.maxIters);
-                const real H = (real)i / (real)p.maxIters;
+                const real H = (real)(i*i) / (real)(p.maxIters * p.maxIters);
 
                 m_colorMap[i] = Color{
                     .h = H,
@@ -243,17 +254,19 @@ private slots:
                 };
             }
             
-            m_colorMap[p.maxIters] = Color{
+            m_colorMap[p.maxIters - 1] = Color{
                 .h = 0.0,
                 .s = 0.0,
                 .l = 0.0,
             };
         }
 
-        m_frame = handle.get();
-
         auto colorTrans2 = [this](uint32_t it)
         {
+            if (it >= m_colorMap.size())
+            {
+                return QColor(Qt::black);
+            }
             const auto H = p.hueX * m_colorMap.at((it+p.round) % p.maxIters).h;
             const auto S = m_colorMap.at(it).s;
             const auto L = m_colorMap.at(it).l;
@@ -293,7 +306,7 @@ private slots:
             colmap[i] = colorTrans1(i);
         } */
 
-        #pragma omp parallel for
+        //#pragma omp parallel for
         for (unsigned i = 0; i < c.h; i++)
         {
             for (unsigned j = 0; j < c.w; j++)
@@ -303,23 +316,6 @@ private slots:
                 m_img.setPixelColor(j, i, colorTrans2(it));
             }
         }
-
-        handle = std::async(
-            std::launch::async,
-            [this]()
-            {
-                return m_mengele.calcFrame(
-                    FrameParams{
-                        .x = p.x,
-                        .y = p.y,
-                        .zoom = p.zoom,
-                        .width = c.w,
-                        .height = c.h,
-                        .maxIters = p.maxIters,
-                    }
-                );
-            }
-        );
 
         std::thread renderObjT(
             [this]()
