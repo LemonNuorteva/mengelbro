@@ -292,26 +292,6 @@ private slots:
             return col;
         };
 
-        /* auto colorTrans1 = [](uint32_t it)
-        {
-            QColor col = Qt::black;
-            if(it < maxIters)
-            {
-                float val = (float)it / maxIters;
-                col.setHslF(std::fmod(val + val * round * 0.1f, 1.0f), 1.0f, val);
-            }
-            return col;
-        };
-
-        std::vector<QColor> colmap;
-
-        colmap.resize(2000);
-
-        for(auto i = 0; i < 2000; i++)
-        {
-            colmap[i] = colorTrans1(i);
-        } */
-
         //#pragma omp parallel for
         for (unsigned i = 0; i < c.h; i++)
         {
@@ -407,3 +387,23 @@ ColorRgb ColorHsl::toRgb()
 
     return {red, green, blue};
 }
+
+/* auto colorTrans1 = [](uint32_t it)
+{
+    QColor col = Qt::black;
+    if(it < maxIters)
+    {
+        float val = (float)it / maxIters;
+        col.setHslF(std::fmod(val + val * round * 0.1f, 1.0f), 1.0f, val);
+    }
+    return col;
+};
+
+std::vector<QColor> colmap;
+
+colmap.resize(2000);
+
+for(auto i = 0; i < 2000; i++)
+{
+    colmap[i] = colorTrans1(i);
+} */
