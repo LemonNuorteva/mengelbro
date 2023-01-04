@@ -2,6 +2,15 @@ cmake_minimum_required(VERSION 3.20)
 
 project(mengelbro)
 
+#language setup
+set(project_languages
+                            C
+                            CXX
+                            ISPC
+)
+set(CMAKE_C_STANDARD        17)
+set(CMAKE_CXX_STANDARD      20)
+
 set(libraries_to_link   "")
 
 find_package(Threads)

@@ -15,6 +15,8 @@
 
 #include "mengele.h"
 
+
+
 struct ColorRgb
 {
     double red;
@@ -38,9 +40,9 @@ struct StaticParams
 
 struct Params
 {
-    uint32_t maxIters = 100;
+    uint32_t maxIters = 500;
     uint32_t roundsPerRound = 0;
-    uint32_t round = 0;
+    int32_t round = 0;
 
     real x = 0.0, y = 0.0;
     real zoom = 1.0, zoomPerRound = 1.0;
@@ -111,17 +113,6 @@ public:
 
         m_futureFrame = asyncMengele(p, c, m_mengele);
     }
-
-    Params p = c_start;
-
-    Mengele m_mengele;
-
-    std::future<Frame> m_futureFrame;
-    Frame m_frame;
-
-    FILE* m_ffmpeg;
-
-    QImage m_img;
 
 private slots:
 
@@ -233,10 +224,37 @@ private slots:
         ;
     }
 
+    template <typename Func>
+    real funcjuttu(
+        const auto& i, 
+        const auto& max,
+        const Func& func    
+    )
+    {
+        return (real)func(i) / (real)func(max);
+    }
+
     void paintEvent(QPaintEvent* event) override
     {
         m_frame = m_futureFrame.get();
         m_futureFrame = asyncMengele(p, c, m_mengele);
+
+        Frame asdfg = Mengele::convolute(
+            c.h,
+            c.w,
+            m_frame,
+            {
+                {0.5, 0.5, 0.5},
+                {0.5, 0.5, 0.5},
+                {0.5, 0.5, 0.5}
+            }
+        );
+
+        // std::cout << "ASD: ";
+        // for (const auto& i : asd)
+        // {
+        //     std::cout << i;
+        // }
 
         if (m_colorMap.size() != p.maxIters)
         {
@@ -251,7 +269,14 @@ private slots:
             for (size_t i = 0; i < p.maxIters; i++)
             {
                 //const real H = std::log((real)i) / std::log((real)p.maxIters);
-                const real H = (real)(i*i) / (real)(p.maxIters * p.maxIters);
+                //const real H = (real)(i*i) / (real)(p.maxIters * p.maxIters);
+                const real H = funcjuttu(
+                    i,
+                    p.maxIters,
+                    [&](const real asd){
+                        return (1.0/asd + p.maxIters)*asd*std::sin(asd / 10.0);
+                    }
+                );
 
                 m_colorMap[i] = Color{
                     .h = H,
@@ -273,7 +298,7 @@ private slots:
             {
                 return QColor(Qt::black);
             }
-            const auto H = p.hueX * m_colorMap.at((it+p.round) % p.maxIters).h;
+            const auto H = m_colorMap.at((int(p.hueX * it)+p.round) % p.maxIters).h;
             const auto S = m_colorMap.at(it).s;
             const auto L = m_colorMap.at(it).l;
 
@@ -297,7 +322,7 @@ private slots:
         {
             for (unsigned j = 0; j < c.w; j++)
             {
-                auto it = m_frame.at(i * c.w + j);
+                auto it = asdfg.at(i * c.w + j);
 
                 m_img.setPixelColor(j, i, colorTrans2(it));
             }
@@ -323,6 +348,17 @@ private slots:
     }
 
 private:
+
+    Params p = c_start;
+
+    Mengele m_mengele;
+
+    std::future<Frame> m_futureFrame;
+    Frame m_frame;
+
+    FILE* m_ffmpeg;
+
+    QImage m_img;
 
     QPixmap m_pixmap;
     QLabel* m_renderObj;
