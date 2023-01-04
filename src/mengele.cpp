@@ -70,3 +70,84 @@ void Mengele::calcField(
         m_frame.at(fieldNum * params.width + i) = iterator;
     }
 }
+
+// Convolution ----------------------------------------------------
+
+const Frame Mengele::convolute(
+    const int height,
+    const int width,
+    const Frame& frame, 
+    const Conv& conv
+)
+{
+    Frame out = Frame(height * width);
+
+    for (int i = 0; i < height * width; i++)
+    {
+        out.at(i) = multiply(
+            frame.at(i), 
+            genConvKernel(
+                height,
+                width,
+                frame,
+                conv
+            )
+        );
+    }
+
+    return out;
+}
+
+real Mengele::multiply(
+    const real x, 
+    const Conv& convKern
+)
+{
+    real accum = {};
+
+    for (const auto& i : convKern)
+    {
+        for (const auto& j : i)
+        {
+            accum += x*j;
+        }
+    }
+
+    return accum;
+}
+
+const Conv Mengele::genConvKernel(
+    const int height,
+    const int width,
+    const Frame& frame,
+    const Conv& conv
+)
+{
+    Conv out = Conv(conv.size(), std::vector<real>(conv.at(0).size(), {}));
+
+    const int convMiddleH = conv.size() / 2;
+    const int convMiddleW = conv.at(0).size() / 2;
+
+    for (int i = 0; i < out.size(); i++)
+    {
+        for (int j = 0; j < out.at(0).size(); j++)
+        {
+            const int frameW = j - convMiddleW;
+            const int frameH = i - convMiddleH;
+
+            if (hPos < 0 || hPos >= conv.size()
+                || wPos < 0 || wPos >= conv.at(0).size()) 
+            {
+                continue;
+            }
+            else
+            {
+                out.at(i).at(j) = frame.at(
+                    height * (i - convMiddleH) + j - convMiddleW
+                );
+            }
+        }
+    }
+
+    return out;
+}

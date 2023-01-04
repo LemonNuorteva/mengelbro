@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <inttypes.h>
 #include <vector>
 #include <cmath>
@@ -14,6 +15,7 @@ struct Color
 };
 
 using Frame = std::vector<uint32_t>;
+using Conv = std::vector<std::vector<real>>;
 
 struct FrameParams
 {
@@ -42,10 +44,16 @@ class Mengele
 {
 public:
 
-    Mengele()
-    {}
+    Mengele(){};
 
     const Frame& calcFrame(const FrameParams& params);
+
+    static const Frame convolute(
+        const int height,
+        const int width,
+        const Frame& frame,
+        const Conv& conv
+    );
 
 private:
 
@@ -53,6 +61,15 @@ private:
         const uint32_t fieldNum,
         const FrameParams& params
     );
+
+    static const Conv genConvKernel(
+        const int x, 
+        const int y,
+        const Frame& frame,
+        const Conv& conv
+    );
+
+    static real multiply(const real x, const Conv& convKern);
 
     FrameParams m_last;
 

@@ -58,5 +58,7 @@
         "cinttypes": "cpp",
         "typeinfo": "cpp",
         "variant": "cpp"
-    }
+    },
+    "workbench.editor.restoreViewState": false,
+    "workbench.editor.sharedViewState": true
 }
