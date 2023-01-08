@@ -44,8 +44,8 @@ void Mengele::calcField(
     const FrameParams& params
 )
 {
-    const auto zoomX = params.zoom;
-    const auto zoomY = params.zoom;
+    const auto zoomX = params.zoom*params.zoomCur;
+    const auto zoomY = params.zoom/params.zoomCur;
 
     for (uint32_t i = 0; i < params.width; i++)
     {
@@ -72,7 +72,7 @@ void Mengele::calcField(
 }
 
 // Convolution ----------------------------------------------------
-
+/*
 const Frame Mengele::convolute(
     const int height,
     const int width,
@@ -150,4 +150,4 @@ const Conv Mengele::genConvKernel(
     }
 
     return out;
-}
+}*/

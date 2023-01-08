@@ -35,7 +35,7 @@ struct ColorHsl
 
 struct StaticParams
 {
-    int w = 1280, h = 720;
+    int w = 1920, h = 1080;
 } c;
 
 struct Params
@@ -45,21 +45,25 @@ struct Params
     int32_t round = 0;
 
     real x = 0.410782, y = 0.336377;
-    real zoom = 0.0994672, zoomPerRound = 1.0;
+    real zoom = 0.0994672, zoomPerRound = 1.0, 
+        zoomCur = 1.0, zoomCurPerRound = 1.0;
     real hueX = 1.0;
+
+    int fileCount = 0;
 
     bool record = false;
 } c_start;
 
-FILE* initFfmpeg()
+FILE* initFfmpeg(Params& p)
 {
     return popen(
         fmt::format(
             "ffmpeg -y -f rawvideo -vcodec rawvideo -pix_fmt bgra "
             "-s {}x{} -r 25 -i - -f mp4 -q:v 1 -an "
-            "-vcodec mpeg4 output.mp4",
+            "-vcodec mpeg4 output{}.mp4",
             c.w,
-            c.h
+            c.h,
+            p.fileCount
         ).c_str(), 
         "w"
     );
@@ -73,6 +77,7 @@ std::future<Frame> asyncMengele(
 {
     params.round = params.round + params.roundsPerRound;
     params.zoom = params.zoom * params.zoomPerRound;
+    params.zoomCur = params.zoomCur * params.zoomCurPerRound;
 
     return std::async(
         std::launch::async,
@@ -83,6 +88,7 @@ std::future<Frame> asyncMengele(
                     .x = params.x,
                     .y = params.y,
                     .zoom = params.zoom,
+                    .zoomCur = params.zoomCur,
                     .width = sParams.w,
                     .height = sParams.h,
                     .maxIters = params.maxIters,
@@ -107,7 +113,7 @@ public:
         layout->addWidget(m_renderObj);
         setLayout(layout);
 
-        m_ffmpeg = initFfmpeg();
+        m_ffmpeg = initFfmpeg(p);
         
         m_img = QImage(c.w, c.h,  QImage::Format_ARGB32);
 
@@ -119,7 +125,7 @@ private slots:
     void keyPressEvent(QKeyEvent *event) override
     {
         std::cout << event->text().toStdString() << "\n";
-        if(event->key() == Qt::Key_Z)
+        if(event->key() == Qt::Key_Z) // ZOOM
         {
             p.zoom = p.zoom*0.99;
         }
@@ -131,7 +137,7 @@ private slots:
         {
             p.zoom = 1.0; 
         }
-        if(event->key() == Qt::Key_O)
+        if(event->key() == Qt::Key_O) // ZoomX
         {
             p.zoomPerRound = p.zoomPerRound*0.99;
         }
@@ -143,7 +149,7 @@ private slots:
         {
             p.zoomPerRound = 1.0; 
         }
-        if(event->key() == Qt::Key_Y)
+        if(event->key() == Qt::Key_Y) // HueX
         {
             p.hueX = p.hueX*0.99;
         }
@@ -155,8 +161,20 @@ private slots:
         {
             p.hueX = 1.0; 
         }
+        if(event->key() == Qt::Key_N) //ZoomCurveX
+        {
+            p.zoomCurPerRound = p.zoomCurPerRound*0.99;
+        }
+        if(event->key() == Qt::Key_M)
+        {
+            p.zoomCurPerRound = p.zoomCurPerRound*1.01;
+        }
+        if(event->key() == Qt::Key_B)
+        {
+            p.zoomCurPerRound = 1.0; 
+        }
 
-        if(event->key() == Qt::Key_Q)
+        if(event->key() == Qt::Key_Q) // MAX
         {
             p.maxIters = p.maxIters*0.99;
             m_colorMap.clear();
@@ -169,7 +187,7 @@ private slots:
             m_colorMap.clear();
         }
 
-        if(event->key() == Qt::Key_R)
+        if(event->key() == Qt::Key_R) // Rounds
         {
             p.roundsPerRound--;
         }
@@ -178,25 +196,25 @@ private slots:
             p.roundsPerRound++;
         }
 
-        if(event->key() == Qt::Key_W)
+        if(event->key() == Qt::Key_W) // Up
         {
             p.y = p.y - 0.01*p.zoom;
         }
-        if(event->key() == Qt::Key_S)
+        if(event->key() == Qt::Key_S) // Down
         {
             p.y = p.y + 0.01*p.zoom;
         }
 
-        if(event->key() == Qt::Key_D)
+        if(event->key() == Qt::Key_D) // Right
         {
             p.x = p.x + 0.01*p.zoom;
         }
-        if(event->key() == Qt::Key_A)
+        if(event->key() == Qt::Key_A) // Left
         {
             p.x = p.x - 0.01*p.zoom;
         }
 
-        if(event->key() == Qt::Key_C)
+        if(event->key() == Qt::Key_C) // START / STOP
         {
             fflush(m_ffmpeg);
             p.record = !p.record;
@@ -205,11 +223,11 @@ private slots:
                 std::cout << "Recording!\n";
             }
         }
-        if(event->key() == Qt::Key_V)
+        if(event->key() == Qt::Key_V) // RESET
         {
             fflush(m_ffmpeg);
             pclose(m_ffmpeg);
-            m_ffmpeg = initFfmpeg();
+            m_ffmpeg = initFfmpeg(p);
             std::cout << "Recording reseted!\n";
         }
 
@@ -218,7 +236,9 @@ private slots:
             << "roundsPerRound: " << p.roundsPerRound << "\n"
             << "round: " << p.round  % p.maxIters<< "\n"
             << "x: " << p.x << " y: " << p.y << "\n"
-            << "zoom: " << p.zoom << " zoomPerRound: " << p.zoomPerRound << "\n"
+            << "zoom: " << p.zoom 
+                << " zoomPerRound: " << p.zoomPerRound
+                << " zoomCurPerRound: " << p.zoomCurPerRound << "\n"
             << "hueX: " << p.hueX << "\n"
             << "record: " << p.record << "\n"
         ;
@@ -239,16 +259,16 @@ private slots:
         m_frame = m_futureFrame.get();
         m_futureFrame = asyncMengele(p, c, m_mengele);
 
-        Frame asd = Mengele::convolute(
-            c.h,
-            c.w,
-            m_frame,
-            {
-                {1.0, 2.0, 1.0},
-                {1.0, 1.0, 1.0},
-                {-1.0, -2.0, -1.0}
-            }
-        );
+        // Frame asd = Mengele::convolute(
+        //     c.h,
+        //     c.w,
+        //     m_frame,
+        //     {
+        //         {1.0, 2.0, 1.0},
+        //         {0.0, 0.0, 0.0},
+        //         {-1.0, -2.0, -1.0}
+        //     }
+        // );
 
         // std::cout << "ASD: ";
         // for (const auto& i : asd)
@@ -269,13 +289,13 @@ private slots:
             for (size_t i = 0; i < p.maxIters; i++)
             {
                 //const real H = std::log((real)i) / std::log((real)p.maxIters);
-                //const real H = (real)(i*i) / (real)(p.maxIters * p.maxIters);
+                //const real H = (real)(i) / (real)(p.maxIters);
                 const real H = funcjuttu(
                     i,
                     p.maxIters,
-                    [&](const real asd)
+                    [&](const real i)
                     {
-                        return (1.0/asd + p.maxIters)*asd*std::sin(asd*asd / 10.0 - asd);
+                        return i*std::sin(i / 10.0);
                     }
                 );
 
@@ -323,7 +343,7 @@ private slots:
         {
             for (unsigned j = 0; j < c.w; j++)
             {
-                auto it = asd.at(i * c.w + j);
+                auto it = m_frame.at(i * c.w + j);
 
                 m_img.setPixelColor(j, i, colorTrans2(it));
             }
