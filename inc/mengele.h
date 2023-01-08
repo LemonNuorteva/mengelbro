@@ -19,7 +19,7 @@ using Conv = std::vector<std::vector<real>>;
 
 struct FrameParams
 {
-    real x = 0, y = 0, zoom = 0;
+    real x = 0, y = 0, zoom = 0, zoomCur = 0.0;
     int width = 0, height = 0;
     uint32_t maxIters = 0;
 
@@ -30,8 +30,9 @@ struct FrameParams
         const bool xis = std::abs(this->x - ot.x) < eps;
         const bool yis = std::abs(this->y - ot.y) < eps;
         const bool zoomis = std::abs(this->zoom - ot.zoom) < eps;
+        const bool zoomCuris = std::abs(this->zoomCur - ot.zoomCur) < eps;
 
-        return xis && yis && zoomis
+        return xis && yis && zoomis && zoomCuris
             && this->width == ot.width
             && this->height == ot.height
             && this->maxIters == ot.maxIters;
@@ -48,12 +49,12 @@ public:
 
     const Frame& calcFrame(const FrameParams& params);
 
-    static const Frame convolute(
-        const int height,
-        const int width,
-        const Frame& frame,
-        const Conv& conv
-    );
+    // static const Frame convolute(
+    //     const int height,
+    //     const int width,
+    //     const Frame& frame,
+    //     const Conv& conv
+    // );
 
 private:
 
@@ -62,14 +63,14 @@ private:
         const FrameParams& params
     );
 
-    static const Conv genConvKernel(
-        const int x, 
-        const int y,
-        const Frame& frame,
-        const Conv& conv
-    );
+    // static const Conv genConvKernel(
+    //     const int x, 
+    //     const int y,
+    //     const Frame& frame,
+    //     const Conv& conv
+    // );
 
-    static real multiply(const real x, const Conv& convKern);
+    // static real multiply(const real x, const Conv& convKern);
 
     FrameParams m_last;
 
