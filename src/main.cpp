@@ -295,7 +295,7 @@ private slots:
                     p.maxIters,
                     [&](const real i)
                     {
-                        return i*std::sin(i / 10.0);
+                        return i*std::sin(i / 10.0) + i;
                     }
                 );
 
