@@ -63,7 +63,7 @@ FILE* initFfmpeg(Params& p)
             "-vcodec mpeg4 output{}.mp4",
             c.w,
             c.h,
-            p.fileCount
+            p.fileCount++
         ).c_str(), 
         "w"
     );
@@ -349,23 +349,44 @@ private slots:
             }
         }
 
-        std::thread renderObjT(
-            [this]()
+        // std::thread renderObjT(
+        //     [this]()
+        //     {
+        //         m_renderObj->setPixmap(QPixmap::fromImage(m_img));
+        //         m_renderObj->update();
+        //     }
+        // );
+
+        const auto imageRendr = m_img;
+        m_futureRender.get();
+        m_futureRender = std::async(
+            std::launch::async,
+            [&]()
             {
-                m_renderObj->setPixmap(QPixmap::fromImage(m_img));
+                m_renderObj->setPixmap(QPixmap::fromImage(imageRendr));
                 m_renderObj->update();
             }
         );
 
-        std::thread m_ffmpegT(
-            [this]()
+        const auto imageFfmpeg = m_img;
+        m_futureFfmpeg.get();
+        m_futureFfmpeg = std::async(
+            std::launch::async,
+            [&]()
             {
-                if (p.record) fwrite(m_img.bits(), 1, m_img.sizeInBytes(), m_ffmpeg);
+                if (p.record) fwrite(imageFfmpeg.bits(), 1, imageFfmpeg.sizeInBytes(), m_ffmpeg);
             }
         );
 
-        renderObjT.join();
-        m_ffmpegT.join();
+        // std::thread m_ffmpegT(
+        //     [this]()
+        //     {
+        //         if (p.record) fwrite(m_img.bits(), 1, m_img.sizeInBytes(), m_ffmpeg);
+        //     }
+        // );
+
+        // renderObjT.join();
+        // m_ffmpegT.join();
     }
 
 private:
@@ -384,6 +405,9 @@ private:
     QPixmap m_pixmap;
     QLabel* m_renderObj;
     std::vector<Color> m_colorMap;
+
+    std::future<void> m_futureRender;
+    std::future<void> m_futureFfmpeg;
 };
 
 int main(int argc, char** argv)
@@ -404,6 +428,8 @@ ColorRgb ColorHsl::toRgb()
     double red;
     double green;
     double blue;
+
+    hue = std::fmod(hue, 1.0);
 
     if (saturation == 0.0) {
         red = lumi * 255.0;

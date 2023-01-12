@@ -67,7 +67,7 @@ void Mengele::calcField(
             iterator++;
         }
 
-        m_frame.at(fieldNum * params.width + i) = iterator;
+        m_frame[fieldNum * params.width + i] = iterator;
     }
 }
 

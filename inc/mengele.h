@@ -25,14 +25,14 @@ struct FrameParams
 
     bool operator==(const FrameParams& ot)
     {
-        const double eps = 0.000000000000000000000001;
+        const double EPS = 0.000000000000000000000001;
 
-        const bool xis = std::abs(this->x - ot.x) < eps;
-        const bool yis = std::abs(this->y - ot.y) < eps;
-        const bool zoomis = std::abs(this->zoom - ot.zoom) < eps;
-        const bool zoomCuris = std::abs(this->zoomCur - ot.zoomCur) < eps;
+        const bool xIs = std::abs(this->x - ot.x) < EPS;
+        const bool yIs = std::abs(this->y - ot.y) < EPS;
+        const bool zoomIs = std::abs(this->zoom - ot.zoom) < EPS;
+        const bool zoomCurIs = std::abs(this->zoomCur - ot.zoomCur) < EPS;
 
-        return xis && yis && zoomis && zoomCuris
+        return xIs && yIs && zoomIs && zoomCurIs
             && this->width == ot.width
             && this->height == ot.height
             && this->maxIters == ot.maxIters;
