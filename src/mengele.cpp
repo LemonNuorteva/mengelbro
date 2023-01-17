@@ -44,17 +44,17 @@ void Mengele::calcField(
     const FrameParams& params
 )
 {
-    const auto zoomX = params.zoom;
-    const auto zoomY = params.zoom;
+    const auto zoomX = params.zoom * params.zoomCur;
+    const auto zoomY = params.zoom / params.zoomCur;
 
     for (uint32_t j = 0; j < params.width; j++)
     {
         const real x0 = params.x + zoomX * ( 
-            (real(j) / params.width) - 0.5 
+            (real(j) / real(params.width)) - 0.5 
         );
 
         const real y0 = params.y + zoomY * ( 
-            (real(fieldNum) / params.height) - 0.5 
+            (real(fieldNum) / real(params.height)) - 0.5 
         );
 
         uint32_t iterator = 0;
@@ -69,12 +69,12 @@ void Mengele::calcField(
             iterator++;
         }
 
-        m_frame.at(fieldNum * params.width + j) = iterator;
+        m_frame[fieldNum * params.width + j] = iterator;
     }
 }
 
 // Convolution ----------------------------------------------------
-
+/*
 const Frame Mengele::convolute(
     const int height,
     const int width,
@@ -84,10 +84,11 @@ const Frame Mengele::convolute(
 {
     Frame out = Frame(height * width);
 
+    #pragma omp parallel for
     for (unsigned i = 0; i < height * width; i++)
     {
-        out.at(i) = multiply(
-            frame.at(i), 
+        out[i] = multiply(
+            frame[i], 
             genConvKernel(
                 height,
                 width,
@@ -155,3 +156,4 @@ const Conv Mengele::genConvKernel(
 
     return out;
 }
+*/

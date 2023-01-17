@@ -2,6 +2,7 @@
 
 #include <array>
 #include <inttypes.h>
+#include <new>
 #include <vector>
 #include <cmath>
 
@@ -15,11 +16,10 @@ struct Color
 };
 
 using Frame = std::vector<uint32_t>;
-using Conv = std::vector<std::vector<real>>;
 
 struct FrameParams
 {
-    real x = 0, y = 0, zoom = 0;
+    real x = 0.0, y = 0.0, zoom = 0.0, zoomCur = 1.0;
     int width = 0, height = 0;
     uint32_t maxIters = 0;
 
@@ -27,17 +27,25 @@ struct FrameParams
     {
         const double eps = 0.000000000000000000000001;
 
-        const bool xis = std::abs(this->x - ot.x) < eps;
-        const bool yis = std::abs(this->y - ot.y) < eps;
-        const bool zoomis = std::abs(this->zoom - ot.zoom) < eps;
+        const bool xIs = std::abs(this->x - ot.x) < eps;
+        const bool yIs = std::abs(this->y - ot.y) < eps;
+        const bool zoomIs = std::abs(this->zoom - ot.zoom) < eps;
+        const bool zoomCurIs = std::abs(this->zoomCur - ot.zoomCur) < eps;
 
-        return xis && yis && zoomis
+        return xIs && yIs && zoomIs && zoomCurIs
             && this->width == ot.width
             && this->height == ot.height
             && this->maxIters == ot.maxIters;
     }
 
     FrameParams& operator=(const FrameParams& ot) = default;
+};
+
+using Conv = std::vector<real>;
+
+struct ConvParams
+{
+    int width = 0, height = 0;
 };
 
 class Mengele
@@ -48,12 +56,12 @@ public:
 
     const Frame& calcFrame(const FrameParams& params);
 
-    static const Frame convolute(
-        const int height,
-        const int width,
-        const Frame& frame,
-        const Conv& conv
-    );
+    // static const Frame convolute(
+    //     const int height,
+    //     const int width,
+    //     const Frame& frame,
+    //     const Conv& conv
+    // );
 
 private:
 
@@ -62,17 +70,18 @@ private:
         const FrameParams& params
     );
 
-    static const Conv genConvKernel(
-        const int height, 
-        const int width,
-        const unsigned frameIndex,
-        const Frame& frame,
-        const Conv& conv
-    );
+    // static const Conv genConvKernel(
+    //     const int height, 
+    //     const int width,
+    //     const unsigned frameIndex,
+    //     const Frame& frame,
+    //     const Conv& conv
+    // );
 
-    static real multiply(const real x, const Conv& convKern);
+    // static real multiply(const real x, const Conv& convKern);
 
     FrameParams m_last;
 
-    Frame m_frame;
+    alignas(std::hardware_constructive_interference_size)
+        Frame m_frame;
 };
