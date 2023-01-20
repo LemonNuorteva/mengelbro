@@ -42,15 +42,15 @@ struct StaticParams
 
 struct Params
 {
-    uint32_t maxIters = 3123;
+    uint32_t maxIters = 100;
     real roundsPerRound = 0.0;
     real round = 0.0;
 
-    real x = -0.749848, y = 0.0196966,
+    real x = 0.250006, y = 2.61428e-08,
         xX = 1.0, yX = 1.0;
-    real zoom = 0.000342251, zoomPerRound = 1.0,
+    real zoom = 8.51299e-09, zoomPerRound = 1.0,
         zoomCur = 1.0, zoomCurPerRound = 1.0;
-    real hueX = 1.0;
+    real hueX = 1.0, hueMin = 0.0;
 
     int outputCount = 0;
 
@@ -58,7 +58,7 @@ struct Params
 } p_start;
 
 FILE* initFfmpeg(Params& p)
-{
+{   // ffmpeg -i output0.mp4 -vcodec libaom-av1 -vf scale=1920:1080 -crf 28 -preset slow asd_s.mp4
     //ffmpeg -i output0.mp4 -vcodec libx265 -vf scale=1920:1080 -crf 28 -preset slow asd_s.mp4
     return popen(
         fmt::format(
@@ -92,6 +92,7 @@ std::future<Frame> asyncMengele(
                     .x = params.x,
                     .y = params.y,
                     .zoom = params.zoom,
+                    .zoomCur = params.zoomCur,
                     .width = sParams.w,
                     .height = sParams.h,
                     .maxIters = params.maxIters,
@@ -130,11 +131,11 @@ private slots:
         std::cout << event->text().toStdString() << "\n";
         if(event->key() == Qt::Key_Z) // ZOOM
         {
-            p.zoom = p.zoom*0.99;
+            p.zoom *=0.99;
         }
         if(event->key() == Qt::Key_X)
         {
-            p.zoom = p.zoom*1.01;
+            p.zoom *=1.01;
         }
         if(event->key() == Qt::Key_I)
         {
@@ -142,7 +143,7 @@ private slots:
         }
         if(event->key() == Qt::Key_O) // ZoomX
         {
-            p.zoomPerRound = p.zoomPerRound*0.99;
+            p.zoomPerRound *=0.99;
         }
         if(event->key() == Qt::Key_P)
         {
@@ -152,17 +153,41 @@ private slots:
         {
             p.zoomPerRound = 1.0; 
         }
+        if(event->key() == Qt::Key_N) // ZoomCurvX
+        {
+            p.zoomCurPerRound *= 0.99;
+        }
+        if(event->key() == Qt::Key_M)
+        {
+            p.zoomCurPerRound *= 1.01;
+        }
+        if(event->key() == Qt::Key_B)
+        {
+            p.zoomCurPerRound = 1.0; 
+        }
         if(event->key() == Qt::Key_Y) // HueX
         {
-            p.hueX = p.hueX*0.99;
+            p.hueX *= 0.99;
         }
         if(event->key() == Qt::Key_U)
         {
-            p.hueX = p.hueX*1.01;
+            p.hueX *= 1.01;
         }
         if(event->key() == Qt::Key_K)
         {
             p.hueX = 1.0; 
+        }
+        if(event->key() == Qt::Key_1) // HueMin
+        {
+            p.hueMin += 1.0;
+        }
+        if(event->key() == Qt::Key_2)
+        {
+            p.hueMin -= 1.0;
+        }
+        if(event->key() == Qt::Key_3)
+        {
+            p.hueMin = 1.0; 
         }
 
         if(event->key() == Qt::Key_Q) // MAX
@@ -229,17 +254,6 @@ private slots:
             m_ffmpeg = initFfmpeg(p);
             std::cout << "Recording reseted!\n";
         }
-
-        std::cout 
-            << "maxIters: " << p.maxIters << "\n"
-            << "roundsPerRound: " << p.roundsPerRound << "\n"
-            << "round: " << (int)p.round  % p.maxIters<< "\n"
-            << "x: " << p.x << " y: " << p.y << "\n"
-            << "zoom: " << p.zoom << " zoomPerRound: " << p.zoomPerRound
-                << "zoomCur: " << p.zoomCur << " zoomCurPerRound: " << p.zoomCurPerRound << "\n"
-            << "hueX: " << p.hueX << "\n"
-            << "record: " << p.record << "\n"
-        ;
     }
 
     template <typename Func>
@@ -254,6 +268,16 @@ private slots:
 
     void paintEvent(QPaintEvent* event) override
     {
+        std::cout 
+            << "maxIters: " << p.maxIters << "\n"
+            << "roundsPerRound: " << p.roundsPerRound << "\n"
+            << "round: " << (int)p.round  % p.maxIters<< "\n"
+            << "x: " << p.x << " y: " << p.y << "\n"
+            << "zoom: " << p.zoom << " zoomPerRound: " << p.zoomPerRound
+                << "zoomCur: " << p.zoomCur << " zoomCurPerRound: " << p.zoomCurPerRound << "\n"
+            << "hueX: " << p.hueX << ". hueMin:" << p.hueMin << "\n"
+            << "record: " << p.record << "\n"
+        ;
         m_frame = m_futureFrame.get();
         m_futureFrame = asyncMengele(p, c, m_mengele);
 
@@ -313,7 +337,7 @@ private slots:
             const auto H = m_colorMap[(int(p.hueX * it + p.round)) % p.maxIters].h;
             const auto S = m_colorMap[it].s;
             const auto L = 
-                H >= 13.0 
+                H >= p.hueMin
                     ? m_colorMap[it].l
                     : 0.0;
 

@@ -19,8 +19,8 @@ list(APPEND libraries_to_link Threads::Threads)
 find_package(OpenMP)
 list(APPEND libraries_to_link OpenMP::OpenMP_CXX)
 
-find_package(Qt5 COMPONENTS Widgets REQUIRED)
-list(APPEND libraries_to_link Qt5::Widgets)
+find_package(Qt6 COMPONENTS Widgets REQUIRED)
+list(APPEND libraries_to_link Qt6::Widgets)
 
 find_package(fmt)
 list(APPEND libraries_to_link fmt::fmt)
@@ -33,7 +33,7 @@ set(include_dirs     "")
 set(sources          "")
 set(source_file_types
     ".cpp"
-    ".c"    
+    ".c"
 )
 
 list(APPEND source_dirs ${CMAKE_CURRENT_SOURCE_DIR}/src)
@@ -44,7 +44,7 @@ foreach(dir IN LISTS source_dirs)
         set(tmp_sources "")
         file(GLOB tmp_sources ${dir}/*${filetype})
         list(APPEND sources ${tmp_sources})
-    endforeach()    
+    endforeach()
 endforeach()
 
 
