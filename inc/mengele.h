@@ -12,7 +12,7 @@ using real = double;
 
 struct Color
 {
-    real h, s, l;
+    float h, s, l;
 };
 
 using Frame = std::vector<uint32_t>;
@@ -71,7 +71,7 @@ private:
     );
 
     // static const Conv genConvKernel(
-    //     const int height, 
+    //     const int height,
     //     const int width,
     //     const unsigned frameIndex,
     //     const Frame& frame,

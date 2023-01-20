@@ -20,35 +20,35 @@
 
 struct ColorRgb
 {
-    double red;
-    double green;
-    double blue;
+    float red;
+    float green;
+    float blue;
 };
 
 struct ColorHsl
 {
-    double hue;
-    double saturation;
-    double lumi;
+    float hue;
+    float saturation;
+    float lumi;
 
     ColorRgb toRgb();
 };
 
 struct StaticParams
 {
-    //int w = 1280, h = 720;
-    int w = 3840, h = 2160;
+    int w = 1280, h = 720;
+    //int w = 3840, h = 2160;
 } c;
 
 struct Params
 {
-    uint32_t maxIters = 100;
-    real roundsPerRound = 0.0;
-    real round = 0.0;
+    uint32_t maxIters = 500;
+    float roundsPerRound = 0.0;
+    float round = 0.0;
 
-    real x = 0.250006, y = 2.61428e-08,
+    real x = 0, y = 0,
         xX = 1.0, yX = 1.0;
-    real zoom = 8.51299e-09, zoomPerRound = 1.0,
+    real zoom = 1.0, zoomPerRound = 1.0,
         zoomCur = 1.0, zoomCurPerRound = 1.0;
     real hueX = 1.0, hueMin = 0.0;
 
@@ -68,7 +68,7 @@ FILE* initFfmpeg(Params& p)
             c.w,
             c.h,
             p.outputCount++
-        ).c_str(), 
+        ).c_str(),
         "w"
     );
 }
@@ -118,7 +118,7 @@ public:
         setLayout(layout);
 
         m_ffmpeg = initFfmpeg(p);
-        
+
         m_img = QImage(c.w, c.h,  QImage::Format_ARGB32);
 
         m_futureFrame = asyncMengele(p, c, m_mengele);
@@ -139,7 +139,7 @@ private slots:
         }
         if(event->key() == Qt::Key_I)
         {
-            p.zoom = 1.0; 
+            p.zoom = 1.0;
         }
         if(event->key() == Qt::Key_O) // ZoomX
         {
@@ -151,7 +151,7 @@ private slots:
         }
         if(event->key() == Qt::Key_L)
         {
-            p.zoomPerRound = 1.0; 
+            p.zoomPerRound = 1.0;
         }
         if(event->key() == Qt::Key_N) // ZoomCurvX
         {
@@ -163,7 +163,7 @@ private slots:
         }
         if(event->key() == Qt::Key_B)
         {
-            p.zoomCurPerRound = 1.0; 
+            p.zoomCurPerRound = 1.0;
         }
         if(event->key() == Qt::Key_Y) // HueX
         {
@@ -175,7 +175,7 @@ private slots:
         }
         if(event->key() == Qt::Key_K)
         {
-            p.hueX = 1.0; 
+            p.hueX = 1.0;
         }
         if(event->key() == Qt::Key_1) // HueMin
         {
@@ -187,7 +187,7 @@ private slots:
         }
         if(event->key() == Qt::Key_3)
         {
-            p.hueMin = 1.0; 
+            p.hueMin = 1.0;
         }
 
         if(event->key() == Qt::Key_Q) // MAX
@@ -257,18 +257,18 @@ private slots:
     }
 
     template <typename Func>
-    real funcjuttu(
-        const auto& i, 
+    float funcjuttu(
+        const auto& i,
         const auto& max,
-        const Func& func    
+        const Func& func
     )
     {
-        return (real)func(i) / (real)func(max);
+        return (float)func(i) / (float)func(max);
     }
 
     void paintEvent(QPaintEvent* event) override
     {
-        std::cout 
+        std::cout
             << "maxIters: " << p.maxIters << "\n"
             << "roundsPerRound: " << p.roundsPerRound << "\n"
             << "round: " << (int)p.round  % p.maxIters<< "\n"
@@ -297,14 +297,14 @@ private slots:
             m_colorMap.resize(p.maxIters);
 
             // H needs to bee between 0.0 and 1.0 when iter is
-            const real S = 1.0; //max saturation
-            const real L = 0.5; //50% light
+            const float S = 1.0; //max saturation
+            const float L = 0.5; //50% light
 
             #pragma omp parallel for
             for (size_t i = 0; i < p.maxIters; i++)
             {
                 //const real H = (real)i / 128.0;
-                const real H = i*std::sin(i / 1024.0)/128.0;
+                const float H = i*std::sin(i / 1024.0)/128.0;
                 // const real H = funcjuttu(
                 //     i,
                 //     p.maxIters,
@@ -320,7 +320,7 @@ private slots:
                     .l = L,
                 };
             }
-            
+
             m_colorMap[p.maxIters - 1] = Color{
                 .h = 0.0,
                 .s = 0.0,
@@ -336,12 +336,12 @@ private slots:
             }
             const auto H = m_colorMap[(int(p.hueX * it + p.round)) % p.maxIters].h;
             const auto S = m_colorMap[it].s;
-            const auto L = 
+            const auto L =
                 H >= p.hueMin
                     ? m_colorMap[it].l
-                    : 0.0;
+                    : 0.0f;
 
-            const auto rgb = 
+            const auto rgb =
             ColorHsl{
                 .hue = H,
                 .saturation = S,
@@ -361,7 +361,7 @@ private slots:
         {
             for (unsigned j = 0; j < c.w; j++)
             {
-                auto it = m_frame[i * c.w + j];
+                const auto it = m_frame[i * c.w + j];
 
                 m_img.setPixelColor(j, i, colorTrans2(it));
             }
@@ -397,7 +397,7 @@ private:
         QImage m_img;
 
     QLabel* m_renderObj;
-    
+
     alignas(std::hardware_constructive_interference_size)
         std::vector<Color> m_colorMap;
 };
@@ -415,49 +415,49 @@ int main(int argc, char** argv)
     return EXIT_SUCCESS;
 }
 
-ColorRgb ColorHsl::toRgb() 
+ColorRgb ColorHsl::toRgb()
 {
-    double red;
-    double green;
-    double blue;
+    float red;
+    float green;
+    float blue;
 
-    hue = std::fmod(std::abs(hue), 1.0);
+    hue = std::fmod(std::abs(hue), 1.0f);
 
-    if (saturation == 0.0) {
-        red = lumi * 255.0;
-        green = lumi * 255.0;
-        blue = lumi * 255.0;
+    if (saturation == 0.0f) {
+        red = lumi * 255.0f;
+        green = lumi * 255.0f;
+        blue = lumi * 255.0f;
     } else {
-        double chroma = (1 - std::abs(2 * lumi - 1)) * saturation;
-        double hue_asd = hue * 6.0;
-        double x = chroma * (1 - std::abs(std::fmod(hue, 2.0) - 1));
-        double magnitude = lumi - chroma / 2;
+        float chroma = (1.0f - std::abs(2.0f * lumi - 1.0f)) * saturation;
+        float hue_asd = hue * 6.0f;
+        float x = chroma * (1.0f - std::abs(std::fmod(hue, 2.0f) - 1.0f));
+        float magnitude = lumi - chroma / 2;
 
-        auto hue_to_rgb = [](double chroma, double x, double hue) -> auto {
-            if (hue < 0.0)
-                return std::make_tuple(0.0, 0.0, 0.0);
+        auto hue_to_rgb = [](float chroma, float x, float hue) -> auto {
+            if (hue < 0.0f)
+                return std::make_tuple(0.0f, 0.0f, 0.0f);
             int hue_floor = static_cast<int>(std::floor(hue));
             switch (hue_floor) {
             case 0:
-                return std::make_tuple(chroma, x, 0.0);
+                return std::make_tuple(chroma, x, 0.0f);
             case 1:
-                return std::make_tuple(x, chroma, 0.0);
+                return std::make_tuple(x, chroma, 0.0f);
             case 2:
-                return std::make_tuple(0.0, chroma, x);
+                return std::make_tuple(0.0f, chroma, x);
             case 3:
-                return std::make_tuple(0.0, x, chroma);
+                return std::make_tuple(0.0f, x, chroma);
             case 4:
-                return std::make_tuple(x, 0.0, chroma);
+                return std::make_tuple(x, 0.0f, chroma);
             case 5:
-                return std::make_tuple(chroma, 0.0, x);
+                return std::make_tuple(chroma, 0.0f, x);
             default:
-                return std::make_tuple(0.0, 0.0, 0.0);
+                return std::make_tuple(0.0f, 0.0f, 0.0f);
             }
         };
         std::tie(red, green, blue) = hue_to_rgb(chroma, x, hue_asd);
-        red = (red + magnitude) * 255.0;
-        green = (green + magnitude) * 255.0;
-        blue = (blue + magnitude) * 255.0;
+        red = (red + magnitude) * 255.0f;
+        green = (green + magnitude) * 255.0f;
+        blue = (blue + magnitude) * 255.0f;
     }
 
     return {red, green, blue};

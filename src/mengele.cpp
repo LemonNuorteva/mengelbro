@@ -11,7 +11,7 @@ for each pixel (Px, Py) on the screen do
         y := 2*x*y + y0
         x := xtemp
         iteration := iteration + 1
-    
+
     color := palette[iteration]
     plot(Px, Py, color)
 */
@@ -49,23 +49,26 @@ void Mengele::calcField(
 
     for (uint32_t j = 0; j < params.width; j++)
     {
-        const real x0 = params.x + zoomX * ( 
-            (real(j) / real(params.width)) - 0.5 
+        const real x0 = params.x + zoomX * (
+            (real(j) / real(params.width)) - 0.5
         );
 
-        const real y0 = params.y + zoomY * ( 
-            (real(fieldNum) / real(params.height)) - 0.5 
+        const real y0 = params.y + zoomY * (
+            (real(fieldNum) / real(params.height)) - 0.5
         );
 
         uint32_t iterator = 0;
         real x{};
         real y{};
+        real x2{};
+        real y2{};
 
-        while (x*x + y*y <= 4 && iterator < params.maxIters)
+        while (x2 + y2 <= 4.0 && iterator < params.maxIters)
         {
-            real xTemp = x*x - y*y + x0;
-            y = 2*x*y + y0;
-            x = xTemp;
+			y = 2*x*y + y0;
+			x = x2 - y2 + x0;
+			x2 = x*x;
+			y2 = y*y;
             iterator++;
         }
 
@@ -78,7 +81,7 @@ void Mengele::calcField(
 const Frame Mengele::convolute(
     const int height,
     const int width,
-    const Frame& frame, 
+    const Frame& frame,
     const Conv& conv
 )
 {
@@ -88,7 +91,7 @@ const Frame Mengele::convolute(
     for (unsigned i = 0; i < height * width; i++)
     {
         out[i] = multiply(
-            frame[i], 
+            frame[i],
             genConvKernel(
                 height,
                 width,
@@ -103,7 +106,7 @@ const Frame Mengele::convolute(
 }
 
 real Mengele::multiply(
-    const real x, 
+    const real x,
     const Conv& convKern
 )
 {
@@ -129,7 +132,7 @@ const Conv Mengele::genConvKernel(
 )
 {
     Conv out = Conv(
-        conv.size(), 
+        conv.size(),
         std::vector<real>(
             conv.at(0).size(),
             {}
@@ -143,7 +146,7 @@ const Conv Mengele::genConvKernel(
     {
         for (int j = 0; j < out.at(0).size(); j++)
         {
-            const unsigned convoFrameIndex = 
+            const unsigned convoFrameIndex =
                 frameIndex % width + j - convMiddleW
                 + (convMiddleH + i) * width;
 
