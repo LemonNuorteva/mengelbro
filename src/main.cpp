@@ -16,6 +16,8 @@
 
 #include "mengele.h"
 
+#include "ffmpeg.h"
+
 struct ColorRgb
 {
     float red;

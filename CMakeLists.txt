@@ -25,6 +25,18 @@ list(APPEND libraries_to_link Qt6::Widgets)
 find_package(fmt)
 list(APPEND libraries_to_link fmt::fmt)
 
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
+    libavdevice
+    libavformat
+    libavcodec
+    libavutil
+    libavfilter
+    libswresample
+    libswscale
+)
+list(APPEND libraries_to_link PkgConfig::FFMPEG)
+
 add_compile_options(-march=native)
 
 #sources
