@@ -16,8 +16,6 @@
 
 #include "mengele.h"
 
-
-
 struct ColorRgb
 {
     float red;
@@ -367,7 +365,9 @@ private slots:
             }
         }
 
-        std::thread ffmpegT(
+		if (ffmpegT.joinable()) ffmpegT.join();
+
+        ffmpegT = std::thread(
             [this]()
             {
                 if (p.record) fwrite(m_img.bits(), 1, m_img.sizeInBytes(), m_ffmpeg);
@@ -376,8 +376,6 @@ private slots:
 
         m_renderObj->setPixmap(QPixmap::fromImage(m_img));
         m_renderObj->update();
-
-        ffmpegT.join();
     }
 
 private:
@@ -396,10 +394,12 @@ private:
     alignas(std::hardware_constructive_interference_size)
         QImage m_img;
 
-    QLabel* m_renderObj;
-
     alignas(std::hardware_constructive_interference_size)
         std::vector<Color> m_colorMap;
+
+	std::thread ffmpegT;
+
+    QLabel* m_renderObj;
 };
 
 int main(int argc, char** argv)
