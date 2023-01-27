@@ -16,7 +16,7 @@
 
 #include "mengele.h"
 
-#include "ffmpeg.h"
+#include "lemonav.h"
 
 struct ColorRgb
 {
@@ -36,19 +36,20 @@ struct ColorHsl
 
 struct StaticParams
 {
-    int w = 1280, h = 720;
-    //int w = 3840, h = 2160;
+	//int w = 1280, h = 720;
+    //int w = 1920, h = 1080;
+    int w = 3840, h = 2160;
 } c;
 
 struct Params
 {
-    uint32_t maxIters = 500;
+    uint32_t maxIters = 9874;
     float roundsPerRound = 0.0;
     float round = 0.0;
 
-    real x = 0, y = 0,
+    real x = -0.749961, y = 0.0101582,
         xX = 1.0, yX = 1.0;
-    real zoom = 1.0, zoomPerRound = 1.0,
+    real zoom = 9.93702e-05, zoomPerRound = 1.0,
         zoomCur = 1.0, zoomCurPerRound = 1.0;
     real hueX = 1.0, hueMin = 0.0;
 
@@ -62,9 +63,20 @@ FILE* initFfmpeg(Params& p)
     //ffmpeg -i output0.mp4 -vcodec libx265 -vf scale=1920:1080 -crf 28 -preset slow asd_s.mp4
     return popen(
         fmt::format(
-            "ffmpeg -y -f rawvideo -vcodec rawvideo -pix_fmt bgra "
-            "-s {}x{} -r 10 -i - -f mp4 -q:v 1 -an "
-            "-vcodec mpeg4 output{}.mp4",
+            "ffmpeg -y -hwaccel cuda -hwaccel_output_format cuda "
+			"-hwaccel_device 0 " // 1 is 1050ti
+			"-f rawvideo "
+			"-pix_fmt bgra "
+            "-s {}x{} -r 10 "
+			"-i - "
+			//R"(-vf "hwupload_cuda,scale_npp=1920:1080" )"
+			//"-vf scale=1280:720 "
+			//"-b:v 20M "
+			//"-tune hq -preset p6 "
+			//"-b_ref_mode 0 "
+            //"-c:v hevc_nvenc "
+			"-c:v mpeg4 "
+			"output{}.mp4",
             c.w,
             c.h,
             p.outputCount++
@@ -181,11 +193,19 @@ private slots:
         {
             p.hueMin += 1.0;
         }
-        if(event->key() == Qt::Key_2)
+        if(event->key() == Qt::Key_4)
         {
             p.hueMin -= 1.0;
         }
+        if(event->key() == Qt::Key_2)
+        {
+            p.hueMin += 0.1;
+        }
         if(event->key() == Qt::Key_3)
+        {
+            p.hueMin -= 0.1;
+        }
+        if(event->key() == Qt::Key_5)
         {
             p.hueMin = 1.0;
         }
@@ -254,6 +274,16 @@ private slots:
             m_ffmpeg = initFfmpeg(p);
             std::cout << "Recording reseted!\n";
         }
+        std::cout
+            << "maxIters: " << p.maxIters << "\n"
+            << "roundsPerRound: " << p.roundsPerRound << "\n"
+            << "round: " << (int)p.round  % p.maxIters<< "\n"
+            << "x: " << p.x << " y: " << p.y << "\n"
+            << "zoom: " << p.zoom << " zoomPerRound: " << p.zoomPerRound
+                << "zoomCur: " << p.zoomCur << " zoomCurPerRound: " << p.zoomCurPerRound << "\n"
+            << "hueX: " << p.hueX << ". hueMin:" << p.hueMin << "\n"
+            << "record: " << p.record << "\n"
+        ;
     }
 
     template <typename Func>
@@ -268,16 +298,6 @@ private slots:
 
     void paintEvent(QPaintEvent* event) override
     {
-        std::cout
-            << "maxIters: " << p.maxIters << "\n"
-            << "roundsPerRound: " << p.roundsPerRound << "\n"
-            << "round: " << (int)p.round  % p.maxIters<< "\n"
-            << "x: " << p.x << " y: " << p.y << "\n"
-            << "zoom: " << p.zoom << " zoomPerRound: " << p.zoomPerRound
-                << "zoomCur: " << p.zoomCur << " zoomCurPerRound: " << p.zoomCurPerRound << "\n"
-            << "hueX: " << p.hueX << ". hueMin:" << p.hueMin << "\n"
-            << "record: " << p.record << "\n"
-        ;
         m_frame = m_futureFrame.get();
         m_futureFrame = asyncMengele(p, c, m_mengele);
 
@@ -334,7 +354,7 @@ private slots:
             {
                 return QColor(Qt::black);
             }
-            const auto H = m_colorMap[(int(p.hueX * it + p.round)) % p.maxIters].h;
+            const auto H = m_colorMap[(int(p.hueX * it + p.hueX * p.round)) % p.maxIters].h;
             const auto S = m_colorMap[it].s;
             const auto L =
                 H >= p.hueMin
@@ -367,14 +387,19 @@ private slots:
             }
         }
 
-		if (ffmpegT.joinable()) ffmpegT.join();
+		if (p.record)
+		{
+			if (ffmpegT.joinable()) ffmpegT.join();
 
-        ffmpegT = std::thread(
-            [this]()
-            {
-                if (p.record) fwrite(m_img.bits(), 1, m_img.sizeInBytes(), m_ffmpeg);
-            }
-        );
+			m_imgff = m_img.copy();
+
+			ffmpegT = std::thread(
+				[this]()
+				{
+					fwrite(m_imgff.bits(), 1, m_imgff.sizeInBytes(), m_ffmpeg);
+				}
+			);
+		}
 
         m_renderObj->setPixmap(QPixmap::fromImage(m_img));
         m_renderObj->update();
@@ -392,14 +417,16 @@ private:
         Frame m_frame;
 
     FILE* m_ffmpeg;
+	std::thread ffmpegT;
 
     alignas(std::hardware_constructive_interference_size)
         QImage m_img;
 
+	alignas(std::hardware_constructive_interference_size)
+        QImage m_imgff;
+
     alignas(std::hardware_constructive_interference_size)
         std::vector<Color> m_colorMap;
-
-	std::thread ffmpegT;
 
     QLabel* m_renderObj;
 };
