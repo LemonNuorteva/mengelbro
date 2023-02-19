@@ -1,6 +1,7 @@
 #include <iostream>
 #include <cmath>
 #include <new>
+#include <string>
 #include <tuple>
 #include <deque>
 #include <thread>
@@ -37,21 +38,25 @@ struct ColorHsl
 struct StaticParams
 {
 	//int w = 1280, h = 720;
-    //int w = 1920, h = 1080;
-    int w = 3840, h = 2160;
+    int w = 1920, h = 1080;
+    //int w = 3840, h = 2160;
 } c;
 
 struct Params
 {
-    uint32_t maxIters = 9874;
-    float roundsPerRound = 0.0;
+    uint32_t maxIters = 6543;
+    //uint32_t maxIters = 200;
+    int roundsPerRound = 0.0;
     float round = 0.0;
 
     real x = -0.749961, y = 0.0101582,
         xX = 1.0, yX = 1.0;
     real zoom = 9.93702e-05, zoomPerRound = 1.0,
         zoomCur = 1.0, zoomCurPerRound = 1.0;
-    real hueX = 1.0, hueMin = 0.0;
+    real hueX = 1.0, hueMin = 0.0, hueMax = 50.0, huePlus = 0.0;
+	real a = 1.0, b = 1.0, c = 1.0, d = 1.0, e = 1.0;
+
+	int paramToSet = 0;
 
     int outputCount = 0;
 
@@ -69,13 +74,14 @@ FILE* initFfmpeg(Params& p)
 			"-pix_fmt bgra "
             "-s {}x{} -r 10 "
 			"-i - "
-			//R"(-vf "hwupload_cuda,scale_npp=1920:1080" )"
+			//R"(-vf "format=yuv420p,hwupload_cuda,scale_npp=1920:1080:interp_algo=super" )"
 			//"-vf scale=1280:720 "
-			//"-b:v 20M "
-			//"-tune hq -preset p6 "
-			//"-b_ref_mode 0 "
-            //"-c:v hevc_nvenc "
-			"-c:v mpeg4 "
+			"-b:v 20M "
+			//"-tune hq "
+			"-preset p7 "
+			"-b_ref_mode 0 "
+            "-c:v hevc_nvenc "
+			//"-c:v mpeg4 "
 			"output{}.mp4",
             c.w,
             c.h,
@@ -140,14 +146,103 @@ private slots:
 
     void keyPressEvent(QKeyEvent *event) override
     {
-        std::cout << event->text().toStdString() << "\n";
+		std::string pSetStr;
+
+        if(event->key() == Qt::Key_1) // change
+        {
+			p.paramToSet++;
+            if (p.paramToSet == 3) p.paramToSet = 0;
+        }
+		real* param;
+		switch (p.paramToSet)
+		{
+		case 0:
+			param = &p.hueMin;
+			pSetStr = "hueMin";
+			break;
+		case 1:
+			param = &p.huePlus;
+			pSetStr = "huePlus";
+			break;
+		case 2:
+			param = &p.hueMax;
+			pSetStr = "hueMax";
+			break;
+		case 3:
+			param = &p.a;
+			pSetStr = "a";
+			break;
+		case 4:
+			param = &p.b;
+			pSetStr = "b";
+			break;
+		case 5:
+			param = &p.c;
+			pSetStr = "c";
+			break;
+		case 6:
+			param = &p.d;
+			pSetStr = "d";
+			break;
+		case 7:
+			param = &p.d;
+			pSetStr = "d";
+			break;
+		case 8:
+			param = &p.e;
+			pSetStr = "e";
+			break;
+
+
+		default:
+			break;
+		}
+
+        if(event->key() == Qt::Key_2)
+        {
+            *param = 0.0;
+        }
+        if(event->key() == Qt::Key_3)
+        {
+            *param -= 1.0;
+        }
+        if(event->key() == Qt::Key_4)
+        {
+            *param -= 0.1;
+        }
+        if(event->key() == Qt::Key_5)
+        {
+            *param -= 0.01;
+        }
+        if(event->key() == Qt::Key_6)
+        {
+            *param += 0.01;
+        }
+        if(event->key() == Qt::Key_7)
+        {
+            *param += 0.1;
+        }
+        if(event->key() == Qt::Key_8)
+        {
+            *param += 1.0;
+        }
+		if (param == &p.huePlus
+			&& (event->key() == Qt::Key_1
+				|| event->key() == Qt::Key_2
+				|| event->key() == Qt::Key_3
+				|| event->key() == Qt::Key_4
+				|| event->key() == Qt::Key_5))
+		{
+			m_colorMap.clear();
+		}
+
         if(event->key() == Qt::Key_Z) // ZOOM
         {
-            p.zoom *=0.99;
+            p.zoom *= 0.99;
         }
         if(event->key() == Qt::Key_X)
         {
-            p.zoom *=1.01;
+            p.zoom *= 1.01;
         }
         if(event->key() == Qt::Key_I)
         {
@@ -189,26 +284,6 @@ private slots:
         {
             p.hueX = 1.0;
         }
-        if(event->key() == Qt::Key_1) // HueMin
-        {
-            p.hueMin += 1.0;
-        }
-        if(event->key() == Qt::Key_4)
-        {
-            p.hueMin -= 1.0;
-        }
-        if(event->key() == Qt::Key_2)
-        {
-            p.hueMin += 0.1;
-        }
-        if(event->key() == Qt::Key_3)
-        {
-            p.hueMin -= 0.1;
-        }
-        if(event->key() == Qt::Key_5)
-        {
-            p.hueMin = 1.0;
-        }
 
         if(event->key() == Qt::Key_Q) // MAX
         {
@@ -233,12 +308,12 @@ private slots:
         }
         if(event->key() == Qt::Key_F)
         {
-            p.roundsPerRound -= 0.1;
+            p.roundsPerRound = 0.0;
         }
-        if(event->key() == Qt::Key_G)
-        {
-            p.roundsPerRound += 0.1;
-        }
+        // if(event->key() == Qt::Key_G)
+        // {
+        //     p.roundsPerRound += 0.1;
+        // }
 
         if(event->key() == Qt::Key_W) // UP
         {
@@ -277,12 +352,15 @@ private slots:
         std::cout
             << "maxIters: " << p.maxIters << "\n"
             << "roundsPerRound: " << p.roundsPerRound << "\n"
-            << "round: " << (int)p.round  % p.maxIters<< "\n"
+            << "round: " << (int)p.round % p.maxIters<< "\n"
             << "x: " << p.x << " y: " << p.y << "\n"
             << "zoom: " << p.zoom << " zoomPerRound: " << p.zoomPerRound
-                << "zoomCur: " << p.zoomCur << " zoomCurPerRound: " << p.zoomCurPerRound << "\n"
-            << "hueX: " << p.hueX << ". hueMin:" << p.hueMin << "\n"
+                << " zoomCur: " << p.zoomCur << " zoomCurPerRound: " << p.zoomCurPerRound << "\n"
+            << "hueX: " << p.hueX << " hueMin: " << p.hueMin << " huePlus: " << p.huePlus
+				<< " hueMax: "  << p.hueMax << "\n"
+			<< "a: " << p.a << " b: " << p.b << " c: " << p.c << " d: " << p.d << " e: " << p.e << "\n"
             << "record: " << p.record << "\n"
+			<< "12345 sets " << pSetStr << "\n"
         ;
     }
 
@@ -323,8 +401,10 @@ private slots:
             #pragma omp parallel for
             for (size_t i = 0; i < p.maxIters; i++)
             {
+				const float H = p.huePlus + i*p.a + i*i*p.b + i*i*i*p.c + i*i*i*i*p.d;
                 //const real H = (real)i / 128.0;
-                const float H = i*std::sin(i / 1024.0)/128.0;
+                //const float H = i*std::sin(i / 1024.0)/128.0 + p.huePlus;
+				//const float H = i/256.0 + p.huePlus;
                 // const real H = funcjuttu(
                 //     i,
                 //     p.maxIters,
@@ -334,17 +414,19 @@ private slots:
                 //     }
                 // );
 
-                m_colorMap[i] = Color{
-                    .h = H,
-                    .s = S,
-                    .l = L,
+                m_colorMap[i] =
+				ColorHsl{
+                    .hue = H,
+                    .saturation = S,
+                    .lumi = L,
                 };
             }
 
-            m_colorMap[p.maxIters - 1] = Color{
-                .h = 0.0,
-                .s = 0.0,
-                .l = 0.0,
+            m_colorMap[p.maxIters - 1] =
+			ColorHsl{
+                .hue = 0.0,
+                .saturation = 0.0,
+                .lumi = 0.0,
             };
         }
 
@@ -354,11 +436,12 @@ private slots:
             {
                 return QColor(Qt::black);
             }
-            const auto H = m_colorMap[(int(p.hueX * it + p.hueX * p.round)) % p.maxIters].h;
-            const auto S = m_colorMap[it].s;
+            const auto H = m_colorMap[(int(p.hueX * it + p.hueX * p.round)) % p.maxIters].hue;
+            const auto S = m_colorMap[it].saturation;
             const auto L =
-                H >= p.hueMin
-                    ? m_colorMap[it].l
+                (H - p.huePlus) >= p.hueMin
+				&& (H - p.huePlus) <= p.hueMax
+					? m_colorMap[it].lumi
                     : 0.0f;
 
             const auto rgb =
@@ -373,6 +456,7 @@ private slots:
             col.setRed(rgb.red);
             col.setGreen(rgb.green);
             col.setBlue(rgb.blue);
+
             return col;
         };
 
@@ -414,19 +498,19 @@ private:
     std::future<Frame> m_futureFrame;
 
     alignas(std::hardware_constructive_interference_size)
-        Frame m_frame;
+    Frame m_frame;
 
     FILE* m_ffmpeg;
 	std::thread ffmpegT;
 
     alignas(std::hardware_constructive_interference_size)
-        QImage m_img;
+    QImage m_img;
 
 	alignas(std::hardware_constructive_interference_size)
-        QImage m_imgff;
+    QImage m_imgff;
 
     alignas(std::hardware_constructive_interference_size)
-        std::vector<Color> m_colorMap;
+    std::vector<ColorHsl> m_colorMap;
 
     QLabel* m_renderObj;
 };
@@ -446,27 +530,23 @@ int main(int argc, char** argv)
 
 ColorRgb ColorHsl::toRgb()
 {
-    float red;
-    float green;
-    float blue;
+    if (saturation == 0.0f)
+	{
+		return ColorRgb{
+			.red = lumi * 255.0f,
+			.green = lumi * 255.0f,
+			.blue = lumi * 255.0f,
+		};
+    }
+	else
+	{
+        auto hue_to_rgb = [](float chroma, float x, float hue) -> auto
+		{
+            if (hue < 0.0f) return std::make_tuple(0.0f, 0.0f, 0.0f);
 
-    hue = std::fmod(std::abs(hue), 1.0f);
-
-    if (saturation == 0.0f) {
-        red = lumi * 255.0f;
-        green = lumi * 255.0f;
-        blue = lumi * 255.0f;
-    } else {
-        float chroma = (1.0f - std::abs(2.0f * lumi - 1.0f)) * saturation;
-        float hue_asd = hue * 6.0f;
-        float x = chroma * (1.0f - std::abs(std::fmod(hue, 2.0f) - 1.0f));
-        float magnitude = lumi - chroma / 2;
-
-        auto hue_to_rgb = [](float chroma, float x, float hue) -> auto {
-            if (hue < 0.0f)
-                return std::make_tuple(0.0f, 0.0f, 0.0f);
             int hue_floor = static_cast<int>(std::floor(hue));
-            switch (hue_floor) {
+            switch (hue_floor)
+			{
             case 0:
                 return std::make_tuple(chroma, x, 0.0f);
             case 1:
@@ -483,13 +563,26 @@ ColorRgb ColorHsl::toRgb()
                 return std::make_tuple(0.0f, 0.0f, 0.0f);
             }
         };
-        std::tie(red, green, blue) = hue_to_rgb(chroma, x, hue_asd);
-        red = (red + magnitude) * 255.0f;
-        green = (green + magnitude) * 255.0f;
-        blue = (blue + magnitude) * 255.0f;
-    }
 
-    return {red, green, blue};
+		hue = std::fmod(std::abs(hue), 1.0f);
+
+        float chroma = (1.0f - std::abs(2.0f * lumi - 1.0f)) * saturation;
+        float hue_asd = hue * 6.0f;
+        float x = chroma * (1.0f - std::abs(std::fmod(hue_asd, 2.0f) - 1.0f));
+        float magnitude = lumi - chroma / 2.0f;
+
+		float red;
+		float green;
+		float blue;
+
+        std::tie(red, green, blue) = hue_to_rgb(chroma, x, hue_asd);
+
+		return ColorRgb{
+			.red = (red + magnitude) * 255.0f,
+			.green = (green + magnitude) * 255.0f,
+			.blue = (blue + magnitude) * 255.0f,
+		};
+    }
 }
 
 /* auto colorTrans1 = [](uint32_t it)
