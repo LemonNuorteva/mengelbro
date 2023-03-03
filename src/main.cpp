@@ -15,9 +15,10 @@
 
 #include <fmt/core.h>
 
-#include "mengele.h"
+#include "mandelbrot_oneapi.h"
 
-#include "lemonav.h"
+//#include "lemonav.h"
+//cmake .. -DCMAKE_C_COMPILER=icp -DCMAKE_CXX_COMPILER=icpx
 
 struct ColorRgb
 {
@@ -44,14 +45,14 @@ struct StaticParams
 
 struct Params
 {
-    uint32_t maxIters = 6543;
-    //uint32_t maxIters = 200;
+    //uint32_t maxIters = 6543;
+    uint32_t maxIters = 200;
     int roundsPerRound = 0.0;
     float round = 0.0;
 
-    real x = -0.749961, y = 0.0101582,
+    real x = 1, y = 1,
         xX = 1.0, yX = 1.0;
-    real zoom = 9.93702e-05, zoomPerRound = 1.0,
+    real zoom = 1, zoomPerRound = 1.0,
         zoomCur = 1.0, zoomCurPerRound = 1.0;
     real hueX = 1.0, hueMin = 0.0, hueMax = 50.0, huePlus = 0.0;
 	real a = 1.0, b = 1.0, c = 1.0, d = 1.0, e = 1.0;
@@ -69,7 +70,7 @@ FILE* initFfmpeg(Params& p)
     return popen(
         fmt::format(
             "ffmpeg -y -hwaccel cuda -hwaccel_output_format cuda "
-			"-hwaccel_device 0 " // 1 is 1050ti
+			"-hwaccel_device 1 " // 1 is 1050ti
 			"-f rawvideo "
 			"-pix_fmt bgra "
             "-s {}x{} -r 10 "
@@ -91,10 +92,10 @@ FILE* initFfmpeg(Params& p)
     );
 }
 
-std::future<Frame> asyncMengele(
+std::future<uint32_t*> asyncMengele(
     Params& params,
     const StaticParams& sParams,
-    Mengele& mengele
+    Mandelbrot& mengele
 )
 {
     params.round += params.roundsPerRound;
@@ -105,7 +106,7 @@ std::future<Frame> asyncMengele(
         std::launch::async,
         [&]()
         {
-            return mengele.calcFrame(
+			mengele.initMandelbrot(
                 FrameParams{
                     .x = params.x,
                     .y = params.y,
@@ -116,6 +117,7 @@ std::future<Frame> asyncMengele(
                     .maxIters = params.maxIters,
                 }
             );
+            return mengele.runMandelbrot();
         }
     );
 }
@@ -139,7 +141,7 @@ public:
 
         m_img = QImage(c.w, c.h,  QImage::Format_ARGB32);
 
-        m_futureFrame = asyncMengele(p, c, m_mengele);
+        m_futureFrame = asyncMengele(p, c, m_mandelbrot);
     }
 
 private slots:
@@ -335,7 +337,8 @@ private slots:
 
         if(event->key() == Qt::Key_C) // start / stop
         {
-            fflush(m_ffmpeg);
+			if(m_ffmpeg)
+            	fflush(m_ffmpeg);
             p.record = !p.record;
             if (p.record)
             {
@@ -344,10 +347,12 @@ private slots:
         }
         if(event->key() == Qt::Key_V) // reset
         {
-            fflush(m_ffmpeg);
-            pclose(m_ffmpeg);
-            m_ffmpeg = initFfmpeg(p);
-            std::cout << "Recording reseted!\n";
+			if(m_ffmpeg){
+				fflush(m_ffmpeg);
+				pclose(m_ffmpeg);
+			}
+			m_ffmpeg = initFfmpeg(p);
+			std::cout << "Recording reseted!\n";
         }
         std::cout
             << "maxIters: " << p.maxIters << "\n"
@@ -364,20 +369,48 @@ private slots:
         ;
     }
 
-    template <typename Func>
-    float funcjuttu(
-        const auto& i,
-        const auto& max,
-        const Func& func
-    )
-    {
-        return (float)func(i) / (float)func(max);
-    }
+    // template <typename Func>
+    // float funcjuttu(
+    //     const auto& i,
+    //     const auto& max,
+    //     const Func& func
+    // )
+    // {
+    //     return (float)func(i) / (float)func(max);
+    // }
 
     void paintEvent(QPaintEvent* event) override
     {
-        m_frame = m_futureFrame.get();
-        m_futureFrame = asyncMengele(p, c, m_mengele);
+        uint32_t* buffer = m_futureFrame.get();
+		//copy buffer to m_frame
+		for (int i = 0; i < c.w*c.h; i++)
+		{
+			m_frame[i] = buffer[i];
+		}
+        m_futureFrame = asyncMengele(p, c, m_mandelbrot);
+
+
+
+
+		// p.round += p.roundsPerRound;
+		// p.zoom *= p.zoomPerRound;
+		// p.zoomCur *= p.zoomCurPerRound;
+
+		// m_mandelbrot.initMandelbrot(
+		// 	FrameParams{
+        //             .x = p.x,
+        //             .y = p.y,
+        //             .zoom = p.zoom,
+        //             .zoomCur = p.zoomCur,
+        //             .width = c.w,
+        //             .height = c.h,
+        //             .maxIters = p.maxIters,
+        //         }
+		// );
+
+		// m_frame = m_mandelbrot.runMandelbrot();
+
+
 
         // Frame asdfg = Mengele::convolute(
         //     c.h,
@@ -398,12 +431,12 @@ private slots:
             const float S = 1.0; //max saturation
             const float L = 0.5; //50% light
 
-            #pragma omp parallel for
+            //#pragma omp parallel for
             for (size_t i = 0; i < p.maxIters; i++)
             {
-				const float H = p.huePlus + i*p.a + i*i*p.b + i*i*i*p.c + i*i*i*i*p.d;
+				//const float H = p.huePlus + i*p.a + i*i*p.b + i*i*i*p.c + i*i*i*i*p.d;
                 //const real H = (real)i / 128.0;
-                //const float H = i*std::sin(i / 1024.0)/128.0 + p.huePlus;
+                const float H = i*std::sin(i / 1024.0)/128.0 + p.huePlus;
 				//const float H = i/256.0 + p.huePlus;
                 // const real H = funcjuttu(
                 //     i,
@@ -460,7 +493,7 @@ private slots:
             return col;
         };
 
-        #pragma omp parallel for
+        //#pragma omp parallel for
         for (unsigned i = 0; i < c.h; i++)
         {
             for (unsigned j = 0; j < c.w; j++)
@@ -480,7 +513,8 @@ private slots:
 			ffmpegT = std::thread(
 				[this]()
 				{
-					fwrite(m_imgff.bits(), 1, m_imgff.sizeInBytes(), m_ffmpeg);
+					if(m_ffmpeg)
+						fwrite(m_imgff.bits(), 1, m_imgff.sizeInBytes(), m_ffmpeg);
 				}
 			);
 		}
@@ -493,23 +527,26 @@ private:
 
     Params p = p_start;
 
-    Mengele m_mengele;
+    //Mengele m_mengele;
 
-    std::future<Frame> m_futureFrame;
+    std::future<uint32_t*> m_futureFrame;
 
-    alignas(std::hardware_constructive_interference_size)
-    Frame m_frame;
+    //alignas(std::hardware_constructive_interference_size)
 
-    FILE* m_ffmpeg;
+	Mandelbrot m_mandelbrot;
+    //Frame m_frame;
+	uint32_t* m_frame = new uint32_t[c.w * c.h];
+
+    FILE* m_ffmpeg = nullptr;
 	std::thread ffmpegT;
 
-    alignas(std::hardware_constructive_interference_size)
+    //alignas(std::hardware_constructive_interference_size)
     QImage m_img;
 
-	alignas(std::hardware_constructive_interference_size)
+	//alignas(std::hardware_constructive_interference_size)
     QImage m_imgff;
 
-    alignas(std::hardware_constructive_interference_size)
+    //alignas(std::hardware_constructive_interference_size)
     std::vector<ColorHsl> m_colorMap;
 
     QLabel* m_renderObj;
