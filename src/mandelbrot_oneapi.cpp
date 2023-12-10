@@ -116,7 +116,7 @@ uint32_t* Mandelbrot::runMandelbrot()
 	auto end = std::chrono::high_resolution_clock::now();
 
 	// print the time
-	std::cout << "Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
+	//std::cout << "Time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
 
 	// print the average time of one iteration
 	//std::cout << "Average time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() / 100.0f << "ms" << std::endl;

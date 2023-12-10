@@ -50,8 +50,8 @@ struct Params
     int roundsPerRound = 0.0;
     float round = 0.0;
 
-    real x = 1, y = 1,
-        xX = 1.0, yX = 1.0;
+    real x = -0.725347f, y = 0.254864f,
+        xX = 1.0f, yX = 1.0f;
     real zoom = 1, zoomPerRound = 1.0,
         zoomCur = 1.0, zoomCurPerRound = 1.0;
     real hueX = 1.0, hueMin = 0.0, hueMax = 50.0, huePlus = 0.0;
@@ -601,7 +601,8 @@ ColorRgb ColorHsl::toRgb()
             }
         };
 
-		hue = std::fmod(std::abs(hue), 1.0f);
+		while (hue < 0.0f) hue += 1.0f;
+		while (hue >= 1.0f) hue -= 1.0f;
 
         float chroma = (1.0f - std::abs(2.0f * lumi - 1.0f)) * saturation;
         float hue_asd = hue * 6.0f;

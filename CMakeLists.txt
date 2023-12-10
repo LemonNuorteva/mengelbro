@@ -1,9 +1,10 @@
+# setup cmake version
+cmake_minimum_required(VERSION 3.23.0)
+
 project(mandelbrot_oneapi)
 
 # set(MKL_THREADING tbb_thread)
 
-# setup cmake version
-cmake_minimum_required(VERSION 3.23.0)
 
 # setup compile flags
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsycl -fsycl-targets=nvptx64-nvidia-cuda -Wno-unknown-cuda-version")
@@ -22,6 +23,14 @@ list(APPEND libraries_to_link Qt6::Widgets)
 
 find_package(fmt)
 list(APPEND libraries_to_link fmt::fmt)
+
+find_package(IntelSYCL REQUIRED)
+
+set_property(TARGET IntelSYCL::SYCL_CXX PROPERTY
+	INTERFACE_COMPILE_OPTIONS -fsycl -fsycl-targets=nvptx64-nvidia-cuda -Xsycl-target-backend=nvptx64-nvidia-cuda --offload-arch=sm_61)
+
+set_property(TARGET IntelSYCL::SYCL_CXX PROPERTY
+	INTERFACE_LINK_OPTIONS -fsycl -fsycl-targets=nvptx64-nvidia-cuda -Xsycl-target-backend=nvptx64-nvidia-cuda --offload-arch=sm_61)
 
 #sources
 set(source_dirs      "")
@@ -54,6 +63,7 @@ target_include_directories(${PROJECT_NAME}
 )
 
 target_link_libraries(${PROJECT_NAME} LINK_PUBLIC ${libraries_to_link})
+add_sycl_to_target(TARGET ${PROJECT_NAME} SOURCES ${sources})
 
 # setup source files
 #file(GLOB_RECURSE SOURCES src/*.cpp)
